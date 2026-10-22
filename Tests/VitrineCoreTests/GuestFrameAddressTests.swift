@@ -10,12 +10,24 @@ enum GuestFrames {
     static func ip(_ s: String) -> [UInt8] { s.split(separator: ".").map { UInt8($0)! } }
 
     static func arp(from mac: [UInt8], sender: String, senderMAC: [UInt8]? = nil) -> [UInt8] {
-        broadcast + mac + [0x08, 0x06] + [0, 1, 0x08, 0, 6, 4, 0, 1] + (senderMAC ?? mac) + ip(sender)
-            + [UInt8](repeating: 0, count: 6) + ip("192.168.1.1")
+        // Built in steps: Swift 6.2 times out type-checking one long concatenation.
+        var f = broadcast + mac
+        f += [0x08, 0x06]
+        f += [0, 1, 0x08, 0, 6, 4, 0, 1]
+        f += senderMAC ?? mac
+        f += ip(sender)
+        f += [UInt8](repeating: 0, count: 6)
+        f += ip("192.168.1.1")
+        return f
     }
 
     static func ipv4(from mac: [UInt8], source: String) -> [UInt8] {
-        broadcast + mac + [0x08, 0x00] + [0x45, 0, 0, 20, 0, 0, 0, 0, 64, 17, 0, 0] + ip(source) + ip("192.168.1.1")
+        var f = broadcast + mac
+        f += [0x08, 0x00]
+        f += [0x45, 0, 0, 20, 0, 0, 0, 0, 64, 17, 0, 0]
+        f += ip(source)
+        f += ip("192.168.1.1")
+        return f
     }
 }
 

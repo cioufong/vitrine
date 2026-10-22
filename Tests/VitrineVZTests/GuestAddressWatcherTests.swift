@@ -7,8 +7,14 @@ final class GuestAddressWatcherTests: XCTestCase {
 
     private func frame(from source: [UInt8], ip: String) -> [UInt8] {
         let octets = ip.split(separator: ".").map { UInt8($0)! }
-        return [UInt8](repeating: 0xff, count: 6) + source + [0x08, 0x00]
-            + [0x45, 0, 0, 20, 0, 0, 0, 0, 64, 17, 0, 0] + octets + [192, 168, 1, 1]
+        // Built in steps: Swift 6.2 times out type-checking one long concatenation.
+        var f = [UInt8](repeating: 0xff, count: 6)
+        f += source
+        f += [0x08, 0x00]
+        f += [0x45, 0, 0, 20, 0, 0, 0, 0, 64, 17, 0, 0]
+        f += octets
+        f += [192, 168, 1, 1]
+        return f
     }
 
     func testLearnsKeepsAndReplacesTheAddress() throws {
