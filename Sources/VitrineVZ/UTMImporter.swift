@@ -50,8 +50,17 @@ public enum UTMImporter {
         var notes: [String] = []
 
         var config = VMConfig(name: vmName, guestOS: .linux)
-        if let n = system["CPUCount"] as? Int, n > 0 { config.cpuCount = min(n, ProcessInfo.processInfo.processorCount) }
-        if let mib = system["MemorySize"] as? Int, mib > 0 { config.memoryMiB = UInt64(mib) }
+        // A VM made on a bigger Mac may ask for more than this one has: cap it rather than refuse it.
+        let hostCPUs = ProcessInfo.processInfo.processorCount
+        let hostMiB = ProcessInfo.processInfo.physicalMemory / (1 << 20)
+        if let n = system["CPUCount"] as? Int, n > 0 {
+            config.cpuCount = min(n, hostCPUs)
+            if n > hostCPUs { notes.append("reduced CPUs from \(n) to \(hostCPUs), the number this Mac has") }
+        }
+        if let mib = system["MemorySize"] as? Int, mib > 0 {
+            config.memoryMiB = min(UInt64(mib), hostMiB)
+            if UInt64(mib) > hostMiB { notes.append("reduced memory from \(mib) MiB to \(hostMiB) MiB, the amount this Mac has") }
+        }
         if let mac = ((root["Network"] as? [[String: Any]])?.first?["MacAddress"] as? String)?.lowercased() {
             config.network.macAddress = mac
         }

@@ -29,8 +29,10 @@ final class WindowsSharesTests: XCTestCase {
         c.disks = [.init(path: "disk.img")]
         c.shares = [.init(hostPath: "/tmp", name: "a;b")]
         let bundle = VMBundle(url: FileManager.default.temporaryDirectory.appendingPathComponent("v.vitrinevm"))
-        XCTAssertThrowsError(try c.validate(bundle: bundle)) { XCTAssertTrue($0.localizedDescription.contains("can't be used with Windows"), $0.localizedDescription) }
+        // A large host, so only the share names can fail (CI runners can have 3 CPUs).
+        let big = (cpus: 64, mib: UInt64(1 << 20))
+        XCTAssertThrowsError(try c.validate(bundle: bundle, hostCPUs: big.cpus, hostMemoryMiB: big.mib)) { XCTAssertTrue($0.localizedDescription.contains("can't be used with Windows"), $0.localizedDescription) }
         c.shares = [.init(hostPath: "/tmp", name: "Docs"), .init(hostPath: "/var", name: "docs")]
-        XCTAssertThrowsError(try c.validate(bundle: bundle)) { XCTAssertTrue($0.localizedDescription.contains("duplicate"), $0.localizedDescription) }
+        XCTAssertThrowsError(try c.validate(bundle: bundle, hostCPUs: big.cpus, hostMemoryMiB: big.mib)) { XCTAssertTrue($0.localizedDescription.contains("duplicate"), $0.localizedDescription) }
     }
 }

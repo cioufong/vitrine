@@ -125,6 +125,20 @@ final class UTMImportTests: XCTestCase {
         XCTAssertEqual(try Data(contentsOf: r.bundle.auxiliaryStorageURL), Data("aux".utf8))
     }
 
+    func testCapsCPUsAndMemoryToThisMac() throws {
+        let utm = try makeUTM("Huge", [
+            "Backend": "Apple", "ConfigurationVersion": 4,
+            "System": ["CPUCount": 1_000_000, "MemorySize": Int.max >> 21,
+                       "Boot": ["OperatingSystem": "Linux", "UEFIBoot": true]],
+            "Drive": [["ImageName": "disk.img"]],
+        ], data: ["disk.img": raw("boot")])
+        let r = try UTMImporter.importVM(utm, name: nil)
+        let c = try r.bundle.loadConfig()
+        XCTAssertEqual(c.cpuCount, ProcessInfo.processInfo.processorCount)
+        XCTAssertEqual(c.memoryMiB, ProcessInfo.processInfo.physicalMemory / (1 << 20))
+        XCTAssertEqual(r.notes.filter { $0.hasPrefix("reduced") }.count, 2, "\(r.notes)")
+    }
+
     func testRejectsDiskTraversalAndSymlinkEscape() throws {
         let outside = root.appendingPathComponent("private.img")
         try raw("host data").write(to: outside)

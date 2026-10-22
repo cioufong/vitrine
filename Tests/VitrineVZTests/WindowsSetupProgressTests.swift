@@ -7,7 +7,8 @@ final class WindowsSetupProgressTests: XCTestCase {
     private func fixture() throws -> VMBundle {
         let bundle = VMBundle(url: FileManager.default.temporaryDirectory
             .appendingPathComponent("vitrine-setup-progress-\(UUID()).vitrinevm"))
-        var config = VMConfig(name: "setup", guestOS: .windows)
+        // Small enough to validate on any host (CI runners can have 3 CPUs and 7 GB).
+        var config = VMConfig(name: "setup", guestOS: .windows, cpuCount: 2, memoryMiB: 4096)
         config.backend = .qemu
         config.disks = [.init(path: "disk.img")]
         config.installMedia = "windows.iso"
