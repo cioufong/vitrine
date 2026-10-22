@@ -1,0 +1,4 @@
+"NSLocalNetworkUsageDescription" = "Vitrine は、ツールのインストールやファイル転送のために仮想マシンのプライベートネットワークに接続します。";
+"NSMicrophoneUsageDescription" = "有効にすると、仮想マシンがマイクを使用できるようになります。";
+"NSCameraUsageDescription" = "仮想マシンのウインドウでカメラを共有している間、仮想マシンがカメラを使用できるようになります。";
+"NSBluetoothAlwaysUsageDescription" = "仮想マシンのウインドウで Bluetooth を共有している間、仮想マシンが Mac の Bluetooth を使用できるようになります。";

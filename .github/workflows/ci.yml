@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-test:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select Xcode
+        run: sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | sort -V | tail -1)"
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: guest/linux-agent/go.mod
+      - name: Toolchain versions
+        run: xcodebuild -version && swift --version
+      - name: Build
+        run: swift build -c release
+      - name: Third-party notices are current
+        run: ./scripts/make-notices.sh && git diff --exit-code THIRD_PARTY_NOTICES
+      - name: Cloud-init YAML test dependency
+        run: |
+          python3 -m venv "$RUNNER_TEMP/vitrine-test-python"
+          "$RUNNER_TEMP/vitrine-test-python/bin/python3" -m pip install PyYAML==6.0.3
+      - name: Test
+        run: PATH="$RUNNER_TEMP/vitrine-test-python/bin:$PATH" swift test
+      - name: CLI lifecycle and migration fault regressions
+        run: python3 scripts/tests/lifecycle-integrity.py "$(swift build -c release --show-bin-path)/vitrinectl"
+      - name: Guest agent (Go) tests and cross builds
+        working-directory: guest/linux-agent
+        run: |
+          go vet ./...
+          go test ./...
+          for t in linux/arm64 linux/amd64 windows/arm64 windows/amd64; do
+            CGO_ENABLED=0 GOOS=${t%/*} GOARCH=${t#*/} go build -o /dev/null ./cmd/vitrine-agent
+          done
+      - name: Package app
+        run: ./scripts/build-app.sh release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Vitrine.app
+          path: dist/Vitrine.app

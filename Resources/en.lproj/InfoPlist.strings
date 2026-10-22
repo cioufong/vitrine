@@ -1,0 +1,4 @@
+"NSLocalNetworkUsageDescription" = "Vitrine connects to your virtual machines on their private network to install tools and transfer files.";
+"NSMicrophoneUsageDescription" = "Lets virtual machines use your microphone when you enable it.";
+"NSCameraUsageDescription" = "Lets a virtual machine use your camera while you share it from the VM window.";
+"NSBluetoothAlwaysUsageDescription" = "Lets a virtual machine use your Mac's Bluetooth while you share it from the VM window.";

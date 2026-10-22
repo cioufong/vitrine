@@ -1,0 +1,9 @@
+.build/
+.swiftpm/
+*.xcodeproj
+DerivedData/
+build/
+dist/
+guest/linux-agent/bin/
+.vm-cache/
+signing.local.sh

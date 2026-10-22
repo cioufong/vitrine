@@ -1,0 +1,3 @@
+# Let the logged-in desktop user open the QEMU backend's agent port
+# (/dev/virtio-ports/org.vitrine.agent.0), which is root-only by default.
+SUBSYSTEM=="virtio-ports", ATTR{name}=="org.vitrine.agent.0", TAG+="uaccess"

@@ -1,0 +1,4 @@
+"NSLocalNetworkUsageDescription" = "Vitrine 会通过虚拟机的专用网络与其连接，以安装工具和传输文件。";
+"NSMicrophoneUsageDescription" = "启用后，虚拟机即可使用你的麦克风。";
+"NSCameraUsageDescription" = "在虚拟机窗口中共享相机时，虚拟机即可使用你的相机。";
+"NSBluetoothAlwaysUsageDescription" = "在虚拟机窗口中共享蓝牙时，虚拟机即可使用你 Mac 的蓝牙。";

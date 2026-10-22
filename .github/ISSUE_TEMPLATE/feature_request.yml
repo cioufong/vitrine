@@ -1,0 +1,19 @@
+name: Feature request
+description: Suggest something Vitrine should do
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do?
+      description: Describe the use case rather than a specific implementation.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: How could Vitrine help?
+  - type: input
+    id: guest
+    attributes:
+      label: Guest OS and backend it applies to

@@ -1,0 +1,16 @@
+[Unit]
+Description=Vitrine guest agent (Coherence windows, clipboard, input)
+After=graphical-session.target
+PartOf=graphical-session.target
+# Keep retrying while the X session is still coming up.
+StartLimitIntervalSec=0
+
+[Service]
+# Needs DISPLAY (and XAUTHORITY if the server uses cookies) in the user
+# manager's environment; the XDG autostart entry imports them on login.
+ExecStart=/usr/local/bin/vitrine-agent
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=graphical-session.target

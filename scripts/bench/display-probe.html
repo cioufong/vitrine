@@ -1,0 +1,38 @@
+<!doctype html>
+<!-- Opened full screen in a guest browser by scripts/bench/display-probe.py. The probe square at the
+     top left is what the host samples:
+       #latency  every keydown flips it between black and white (key → pixel latency);
+       #fps      every animation frame steps it through 8 grey levels (frames the host sees per second).
+     The page also shows the rate requestAnimationFrame runs at in the guest. -->
+<html><head><meta charset="utf-8"><title>Vitrine display probe</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #202020; color: #ddd; font: 28px -apple-system, "Segoe UI", sans-serif; cursor: none; }
+  #probe { position: fixed; left: 0; top: 0; width: 320px; height: 320px; background: #000; }
+  #info { position: fixed; left: 360px; top: 40px; white-space: pre; }
+</style></head>
+<body><div id="probe"></div><div id="info">loading</div>
+<script>
+const probe = document.getElementById('probe'), info = document.getElementById('info');
+const mode = location.hash === '#fps' ? 'fps' : 'latency';
+let keys = 0, frames = 0, white = false;
+if (mode === 'latency') {
+  addEventListener('keydown', e => {
+    white = !white;
+    probe.style.background = white ? '#fff' : '#000';
+    keys++;
+    e.preventDefault();
+  });
+} else {
+  const levels = [0, 36, 72, 108, 144, 180, 216, 252];
+  const step = () => { const v = levels[frames % 8]; probe.style.background = `rgb(${v},${v},${v})`; frames++; requestAnimationFrame(step); };
+  requestAnimationFrame(step);
+}
+// Guest-side rAF rate over the last second, independent of the probe mode.
+let ticks = [];
+const count = t => { ticks.push(t); while (ticks.length && t - ticks[0] > 1000) ticks.shift(); requestAnimationFrame(count); };
+requestAnimationFrame(count);
+setInterval(() => {
+  info.textContent = `mode ${mode}\nguest requestAnimationFrame: ${ticks.length} fps\n` +
+    `${innerWidth}×${innerHeight} CSS px @ ${devicePixelRatio}x\nkeys ${keys}`;
+}, 250);
+</script></body></html>

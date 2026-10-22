@@ -1,0 +1,43 @@
+name: Bug report
+description: Something in Vitrine doesn't work as expected
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Security problems go to private vulnerability reporting (see SECURITY.md), not here.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Vitrine version or commit
+    validations:
+      required: true
+  - type: input
+    id: host
+    attributes:
+      label: Mac model and macOS version
+      placeholder: e.g. MacBook Pro M1 Max, macOS 27.0
+    validations:
+      required: true
+  - type: input
+    id: guest
+    attributes:
+      label: Guest OS and backend
+      placeholder: e.g. Windows 11 on Arm (QEMU), Debian 13 (Virtualization.framework)
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: The VM's vitrine.log / qemu.log / console.log from its bundle, with passwords removed.
+      render: text

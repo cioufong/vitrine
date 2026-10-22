@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Vitrine guest agent
+Comment=Starts the vitrine-agent user service inside the X11 session
+Exec=sh -c 'systemctl --user import-environment DISPLAY XAUTHORITY; systemctl --user restart vitrine-agent.service'
+NoDisplay=true
+X-GNOME-Autostart-Phase=Applications

@@ -1,0 +1,4 @@
+"NSLocalNetworkUsageDescription" = "Vitrine 會透過虛擬機器的專用網路與其連線，以安裝工具及傳輸檔案。";
+"NSMicrophoneUsageDescription" = "啟用後，虛擬機器即可使用你的麥克風。";
+"NSCameraUsageDescription" = "在虛擬機器視窗中共享相機時，虛擬機器即可使用你的相機。";
+"NSBluetoothAlwaysUsageDescription" = "在虛擬機器視窗中共享藍牙時，虛擬機器即可使用你 Mac 的藍牙。";
