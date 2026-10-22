@@ -547,13 +547,18 @@ public enum AgentMessage: Equatable, Sendable {
         case .cameraFrame(let f): return f.data.count + 64
         case .clipboard(let c): return c.items.reduce(64) { $0 + $1.data.count + $1.type.utf8.count }
         case .windowList(let l):
-            return l.windows.reduce(64) { $0 + 256 + $1.title.utf8.count + $1.appName.utf8.count + ($1.bundleID?.utf8.count ?? 0) }
+            // Split into typed steps: older compilers (Swift 6.2) give up type-checking one long sum.
+            return l.windows.reduce(64) { (total: Int, w) -> Int in
+                let strings: Int = w.title.utf8.count + w.appName.utf8.count + (w.bundleID?.utf8.count ?? 0)
+                return total + 256 + strings
+            }
         case .log(let s): return 64 + s.utf8.count
         // Every guest-supplied string counts: a catalog of one app with a huge name is still huge.
         case .appIcon(let i): return 64 + i.png.count + i.key.utf8.count
         case .appCatalog(let c):
-            return c.apps.reduce(64) {
-                $0 + 128 + ($1.png?.count ?? 0) + $1.id.utf8.count + $1.name.utf8.count + ($1.key?.utf8.count ?? 0)
+            return c.apps.reduce(64) { (total: Int, app) -> Int in
+                let strings: Int = app.id.utf8.count + app.name.utf8.count + (app.key?.utf8.count ?? 0)
+                return total + 128 + (app.png?.count ?? 0) + strings
             }
         default: return 256
         }
