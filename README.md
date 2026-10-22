@@ -1,5 +1,7 @@
 # Vitrine
 
+**English** · [繁體中文](README.zh-Hant.md) · [简体中文](README.zh-Hans.md) · [日本語](README.ja.md)
+
 [![CI](https://github.com/cioufong/vitrine/actions/workflows/ci.yml/badge.svg)](https://github.com/cioufong/vitrine/actions/workflows/ci.yml)
 
 **Free, open-source virtual machines for Apple Silicon that you and your AI agents can both drive —
@@ -17,8 +19,19 @@ QEMU when Apple's framework can't (Windows 11, x86_64 emulation). Apache-2.0 lic
   desktop (seamless mode), shared clipboard, shared folders, instant snapshots, suspend/resume and
   one-click installs.
 
+![Windows 11 Notepad, File Explorer and Calculator as separate windows on a Mac, next to Vitrine's Control Center](docs/images/seamless-windows.png)
+
 > Status: v0.1, under active development. See [what works](#what-works-today) (with dated test
 > results in [docs/verification.md](docs/verification.md)) and the [roadmap](#roadmap).
+
+### Download
+
+Get `Vitrine-<version>.zip` from the [latest release](https://github.com/cioufong/vitrine/releases/latest),
+unzip it and move `Vitrine.app` to Applications. The app is ad-hoc signed and not notarized yet, so
+macOS blocks its first launch, and on macOS 15 and later right-click ▸ Open no longer gets past
+that: open Vitrine once, then go to **System Settings ▸ Privacy & Security**, scroll down and click
+**Open Anyway** (or run `xattr -dr com.apple.quarantine /Applications/Vitrine.app`). The app's
+command-line tool and MCP server is `/Applications/Vitrine.app/Contents/MacOS/vitrinectl`.
 
 ### Let an agent drive it
 
