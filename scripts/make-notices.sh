@@ -6,6 +6,8 @@ cd "$(dirname "$0")/.."
 out=THIRD_PARTY_NOTICES
 modcache=$(go env GOMODCACHE)
 goroot=$(cd guest/linux-agent && go env GOROOT)
+# The license files are read from the module cache, which is empty on a fresh machine (CI).
+(cd guest/linux-agent && go mod download all)
 {
   echo "Third-party software in Vitrine"
   echo "==============================="

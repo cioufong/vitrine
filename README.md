@@ -1,5 +1,7 @@
 # Vitrine
 
+[![CI](https://github.com/cioufong/vitrine/actions/workflows/ci.yml/badge.svg)](https://github.com/cioufong/vitrine/actions/workflows/ci.yml)
+
 **Free, open-source virtual machines for Apple Silicon that you and your AI agents can both drive —
 macOS, Linux and Windows.**
 
@@ -101,8 +103,9 @@ Verified end-to-end on an M1 Max running macOS 27:
   and click (as the VM's own keyboard and pointer, so also at login screens and in installers), run
   commands and copy files over SSH, and take snapshots — see [docs/mcp.md](docs/mcp.md). Text a US
   keyboard can't type (accents, CJK, emoji) goes through the guest agent. Created end to end through
-  MCP so far: headless Debian 13 and Windows 11 Arm; Unicode typing checked byte for byte in a Debian
-  Xfce terminal and Windows PowerShell ([verification](docs/verification.md)).
+  MCP so far: headless Debian 13, Windows 11 Arm and macOS 27; Unicode typing checked byte for byte
+  in a Debian Xfce terminal, Windows PowerShell and macOS Terminal (pasted through the guest
+  clipboard while the agent may not type) ([verification](docs/verification.md)).
 - **Guest agents**: macOS (Swift), Linux/X11 and Windows (one Go code base). Windows uses GDI capture
   and `SendInput`; its agent waits for virtio-serial by default. TCP is an explicit, weaker
   compatibility transport, not an automatic guest-agent fallback.
@@ -165,7 +168,8 @@ For seamless mode in a macOS VM, click **Allow…** in the bar at the top of the
 *Actions ▸ Allow Vitrine Agent Control…*) once and allow both prompts inside the VM (Screen Recording
 and Accessibility), then press **⌃⌘C** (or the toolbar button). A VM run by `vitrinectl run` asks
 with `vitrinectl agent permissions <vm>`. The agent asks for nothing until you do, so a VM you only
-drive from the host never shows them.
+drive from the host never shows them. Linux and Windows agents need no permission: press **⌃⌘C**, and
+*Actions ▸ Exit Seamless Mode* (or ⌃⌘C again) brings the VM window back.
 
 ### Command line
 
@@ -233,7 +237,7 @@ ARCH=x86_64 ./scripts/smoke-qemu.sh   # same, with x86_64 emulation
 ./scripts/tests/automation-qemu-e2e.sh # QEMU: screenshot, typing and clicks over QMP
 python3 scripts/tests/mcp-e2e.py "$(swift build --show-bin-path)/vitrinectl" <vm>  # MCP against a running desktop VM
 python3 scripts/tests/mcp-create-e2e.py "$(swift build --show-bin-path)/vitrinectl" <new-vm>  # MCP create, clone, snapshots
-python3 scripts/tests/mcp-unicode-e2e.py "$(swift build --show-bin-path)/vitrinectl" <vm> [linux|windows]  # non-US typing
+python3 scripts/tests/mcp-unicode-e2e.py "$(swift build --show-bin-path)/vitrinectl" <vm> [linux|windows|macos]  # non-US typing
 open dist/Vitrine.app --args --coherence-demo   # seamless mode against a synthetic guest
 ```
 
