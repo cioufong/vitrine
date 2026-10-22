@@ -67,7 +67,7 @@ final class BLEControllerTests: XCTestCase {
     private var address: [UInt8] { BLEController.address(for: peer) }
 
     func testAddressIsRandomStatic() {
-        XCTAssertEqual(address, [0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC | 0xC0])
+        XCTAssertEqual(address, [0x12, 0x34, 0x56, 0x78, 0x9A, UInt8(0xBC) | 0xC0])
     }
 
     func testEverySupportedCommandIsHandled() {
