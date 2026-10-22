@@ -4,7 +4,7 @@ import VitrineQEMU
 
 /// Imports UTM virtual machines (`*.utm` bundles, configuration version 4): Virtualization.framework
 /// ("Apple") VMs with macOS or Linux guests, and QEMU VMs for aarch64/x86_64 Linux and Windows.
-/// Disks inside the bundle are copied (APFS clones for raw images, converted for qcow2); the
+/// Disks inside the bundle are copied (APFS clones for Apple VMs, converted to raw for QEMU VMs); the
 /// original bundle is not changed. Settings UTM keeps outside the bundle (external drives, shared
 /// folder paths) can't be imported and are reported.
 public enum UTMImporter {
@@ -167,7 +167,9 @@ public enum UTMImporter {
             }
             diskIndex += 1
             let name = diskIndex == 1 ? "disk.img" : "disk\(diskIndex).img"
-            copies.append((file, name, true))
+            // An Apple VM's disks are already images Virtualization.framework reads: clone them, so
+            // importing one doesn't need QEMU installed. QEMU VMs' (often qcow2) go through qemu-img.
+            copies.append((file, name, config.effectiveBackend == .qemu))
             config.disks.append(.init(path: name, readOnly: drive["ReadOnly"] as? Bool ?? false,
                                       interface: config.effectiveBackend == .qemu ? .nvme : .virtio))
         }
