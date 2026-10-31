@@ -76,6 +76,31 @@ type session struct {
 	btMu  sync.Mutex
 	bt    net.Conn // the Bluetooth bridge, while the host's controller is attached
 	btGen int      // bumped by every start and stop, so a stop beats a start still dialing
+
+	apps appRequests
+}
+
+// App requests run off the read loop: a catalog is seconds of Start-menu
+// enumeration on Windows, or an rsvg-convert per icon on Linux. These bound
+// how much of that runs at once, so a host repeating requests (or, where the
+// transport accepts any peer, a guest program) cannot fork-bomb the guest. A
+// catalog request arriving while one is being built is served after it, with
+// the newest parameters; icon and launch requests beyond the limits are dropped.
+type appRequests struct {
+	mu          sync.Mutex
+	catalogBusy bool
+	catalogNext *protocol.AppCatalogRequest
+	icons       chan struct{} // semaphore, maxIconRequests wide
+	launches    chan struct{} // semaphore, maxLaunchRequests wide
+}
+
+const (
+	maxIconRequests   = 8
+	maxLaunchRequests = 4
+)
+
+func newAppRequests() appRequests {
+	return appRequests{icons: make(chan struct{}, maxIconRequests), launches: make(chan struct{}, maxLaunchRequests)}
 }
 
 // New creates an agent for backend.
@@ -133,7 +158,7 @@ func (a *Agent) Serve(rw io.ReadWriteCloser) {
 		}
 		rw = authed
 	}
-	s := &session{a: a, conn: NewConn(rw), done: make(chan struct{})}
+	s := &session{a: a, conn: NewConn(rw), done: make(chan struct{}), apps: newAppRequests()}
 	a.mu.Lock()
 	old := a.session
 	a.gen++
@@ -329,35 +354,37 @@ func (s *session) handle(m protocol.Message) {
 		}
 	case protocol.AppIconRequest:
 		if p, ok := a.backend.(AppProvider); ok {
-			go func() {
-				png, err := p.AppIcon(v.Key)
-				if err != nil {
-					s.logf("icon %s: %v", v.Key, err)
-				}
-				s.conn.Send(protocol.AppIcon{Key: v.Key, PNG: png})
-			}()
+			select {
+			case s.apps.icons <- struct{}{}:
+				go func() {
+					defer func() { <-s.apps.icons }()
+					png, err := p.AppIcon(v.Key)
+					if err != nil {
+						s.logf("icon %s: %v", v.Key, err)
+					}
+					s.conn.Send(protocol.AppIcon{Key: v.Key, PNG: png})
+				}()
+			default:
+				s.logf("icon %s: dropped, %d requests already running", v.Key, maxIconRequests)
+			}
 		}
 	case protocol.AppCatalogRequest:
 		if p, ok := a.backend.(AppProvider); ok {
-			go func() {
-				size := v.IconSize
-				if size < 0 || size > 512 {
-					size = 128
-				}
-				cat, err := p.AppCatalog(size)
-				if err != nil {
-					s.logf("app catalog: %v", err)
-				}
-				s.conn.Send(cat)
-			}()
+			s.requestCatalog(p, v)
 		}
 	case protocol.LaunchApp:
 		if p, ok := a.backend.(AppProvider); ok {
-			go func() {
-				if err := p.LaunchApp(v.ID); err != nil {
-					s.logf("launch %s: %v", v.ID, err)
-				}
-			}()
+			select {
+			case s.apps.launches <- struct{}{}:
+				go func() {
+					defer func() { <-s.apps.launches }()
+					if err := p.LaunchApp(v.ID); err != nil {
+						s.logf("launch %s: %v", v.ID, err)
+					}
+				}()
+			default:
+				s.logf("launch %s: dropped, %d launches already in progress", v.ID, maxLaunchRequests)
+			}
 		}
 	case protocol.CameraStart:
 		s.cameraStart(v)
@@ -518,3 +545,42 @@ func (k streamSink) SendFrame(f protocol.Frame) bool { return k.s.conn.SendCance
 func (k streamSink) Pending() int64                  { return k.s.conn.Pending() }
 func (k streamSink) DisplayChanged()                 { k.s.publishDisplay(false, k.cancel) }
 func (k streamSink) Logf(format string, args ...any) { k.s.logf(format, args...) }
+
+// requestCatalog builds and sends the app catalog on one goroutine per
+// session at a time. Requests that arrive meanwhile are coalesced: the newest
+// one is served once the current build finishes, the ones between are dropped
+// (each would produce the same catalog).
+func (s *session) requestCatalog(p AppProvider, req protocol.AppCatalogRequest) {
+	s.apps.mu.Lock()
+	if s.apps.catalogBusy {
+		r := req
+		s.apps.catalogNext = &r
+		s.apps.mu.Unlock()
+		return
+	}
+	s.apps.catalogBusy = true
+	s.apps.mu.Unlock()
+	go func() {
+		for {
+			size := req.IconSize
+			if size < 0 || size > 512 {
+				size = 128
+			}
+			cat, err := p.AppCatalog(size)
+			if err != nil {
+				s.logf("app catalog: %v", err)
+			}
+			s.conn.Send(cat)
+			s.apps.mu.Lock()
+			next := s.apps.catalogNext
+			s.apps.catalogNext = nil
+			if next == nil {
+				s.apps.catalogBusy = false
+				s.apps.mu.Unlock()
+				return
+			}
+			s.apps.mu.Unlock()
+			req = *next
+		}
+	}()
+}

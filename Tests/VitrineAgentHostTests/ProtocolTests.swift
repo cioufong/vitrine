@@ -11,6 +11,21 @@ final class ProtocolTests: XCTestCase {
         XCTAssertNil(try d.next(), file: file, line: line)
     }
 
+    func testOversizedWindowListIsRejected() throws {
+        let window = WindowInfo(id: 1, pid: 1, appName: "a", bundleID: nil, title: "t",
+                                frame: Rect(x: 0, y: 0, width: 10, height: 10), layer: 0, kind: .normal, isFocused: false)
+        try roundTrip(.windowList(WindowList(windows: Array(repeating: window, count: WindowList.maxWindows))))
+        let tooMany = try AgentCodec.encode(.windowList(WindowList(windows: Array(repeating: window, count: WindowList.maxWindows + 1))))
+        var d = MessageDeframer()
+        d.append(tooMany)
+        XCTAssertThrowsError(try d.next())
+        var long = window
+        long.title = String(repeating: "x", count: WindowList.maxStringLength + 1)
+        d = MessageDeframer()
+        d.append(try AgentCodec.encode(.windowList(WindowList(windows: [long]))))
+        XCTAssertThrowsError(try d.next())
+    }
+
     func testAllMessagesRoundTrip() throws {
         try roundTrip(.hello(Hello(role: "guest", os: "macOS 27.0", agentVersion: "0.1", capabilities: ["coherence"])))
         try roundTrip(.windowList(WindowList(windows: [
@@ -159,10 +174,26 @@ final class FramebufferTests: XCTestCase {
 
     func testResizeReallocates() throws {
         let fb = GuestFramebuffer()
+        fb.minResizeInterval = 0
         try fb.apply(FrameUpdate(surfaceWidth: 2, surfaceHeight: 2, x: 0, y: 0, width: 1, height: 1, data: Data(count: 4)))
         try fb.apply(FrameUpdate(surfaceWidth: 6, surfaceHeight: 3, x: 0, y: 0, width: 1, height: 1, data: Data(count: 4)))
         XCTAssertEqual(fb.width, 6)
         XCTAssertEqual(fb.height, 3)
+    }
+
+    func testRapidResizesAreDropped() throws {
+        let fb = GuestFramebuffer()
+        let frame = { (w: UInt32) in FrameUpdate(surfaceWidth: w, surfaceHeight: 1, x: 0, y: 0, width: 1, height: 1, data: Data(count: 4)) }
+        try fb.apply(frame(2))
+        // Another size right away: not allocated (a guest alternating sizes would otherwise cost an
+        // allocation per tiny frame); the frame is dropped with an error, the surface stays.
+        XCTAssertThrowsError(try fb.apply(frame(3)))
+        XCTAssertEqual(fb.width, 2)
+        // Frames at the current size keep going through meanwhile.
+        XCTAssertNotNil(try fb.apply(frame(2)))
+        fb.minResizeInterval = 0
+        XCTAssertNotNil(try fb.apply(frame(3)))
+        XCTAssertEqual(fb.width, 3)
     }
 
     func testLZ4Frames() throws {

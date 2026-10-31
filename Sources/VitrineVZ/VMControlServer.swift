@@ -13,6 +13,10 @@ final class VMControlServer: @unchecked Sendable {
     /// idle connections would otherwise stall every async task in the app).
     private let io = DispatchQueue(label: "vitrine.control.io", attributes: .concurrent)
     private var closed = false
+    /// True while `acceptLoop` runs: it then closes the listening descriptor itself when it
+    /// returns, so `stop` never closes a descriptor `accept` may still be about to use (its number
+    /// could be reused by the next server's socket, which this loop would then answer for).
+    private var accepting = false
     private let lock = NSLock()
 
     init(bundle: VMBundle, handler: @escaping @MainActor (VMControl.Request) async -> VMControl.Response) throws {
@@ -34,17 +38,28 @@ final class VMControlServer: @unchecked Sendable {
         lock.lock(); defer { lock.unlock() }
         guard !closed else { return }
         closed = true
-        shutdown(fd, SHUT_RDWR)
-        close(fd)
+        shutdown(fd, SHUT_RDWR) // wakes a blocked accept, which then sees `closed`
+        if !accepting { close(fd) } // the loop never started or has already returned
         unlink(path)
     }
 
     private func acceptLoop() {
+        lock.lock()
+        if closed { lock.unlock(); return } // stopped before the loop ran; `stop` closed the descriptor
+        accepting = true
+        lock.unlock()
+        defer {
+            lock.lock()
+            accepting = false
+            let stopped = closed
+            lock.unlock()
+            if stopped { close(fd) }
+        }
         while true {
             let client = accept(fd, nil, nil)
             if client < 0 {
                 if errno == EINTR { continue }
-                return // closed
+                return // closed (or the listener broke: `stop` closes the descriptor then)
             }
             var tv = timeval(tv_sec: 10, tv_usec: 0)
             setsockopt(client, SOL_SOCKET, SO_RCVTIMEO, &tv, socklen_t(MemoryLayout<timeval>.size))

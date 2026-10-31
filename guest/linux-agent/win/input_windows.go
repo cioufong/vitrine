@@ -122,7 +122,7 @@ func (b *Backend) Key(k protocol.Key) error {
 	}
 	if keymap.IsSynthesizedText(k.KeyCode, k.Text, k.Modifiers) {
 		if k.Down {
-			typeText(k.Text)
+			b.typeText(k.Text)
 		}
 		return nil
 	}
@@ -138,7 +138,7 @@ func (b *Backend) Key(k protocol.Key) error {
 	sc, ok := ScancodeFor(k.KeyCode, b.opts.CommandMode)
 	if !ok {
 		if k.Down && k.Text != "" {
-			typeText(k.Text)
+			b.typeText(k.Text)
 		}
 		return nil
 	}
@@ -176,18 +176,35 @@ func (b *Backend) Key(k protocol.Key) error {
 	return nil
 }
 
+const (
+	// maxTypedRunes caps one synthesized-text event (as on X11); longer text is
+	// truncated. A Key message may carry up to the 64 MiB message limit of text,
+	// which would otherwise become gigabytes of INPUT records in one call.
+	maxTypedRunes = 4096
+	// typeChunk is how many UTF-16 units go into one SendInput call.
+	typeChunk = 256
+)
+
 // typeText injects text as KEYEVENTF_UNICODE events (VK_PACKET), one
 // down/up pair per UTF-16 code unit; surrogate pairs are recombined by the
 // receiving window's WM_CHAR handling.
-func typeText(text string) {
-	units := utf16.Encode([]rune(text))
-	ev := make([]keybdINPUT, 0, 2*len(units))
-	for _, u := range units {
-		ev = append(ev,
-			keybdINPUT{Type: inputKeyboard, Ki: keybdInput{Scan: u, Flags: keyeventfUnicode}},
-			keybdINPUT{Type: inputKeyboard, Ki: keybdInput{Scan: u, Flags: keyeventfUnicode | keyeventfKeyUp}})
+func (b *Backend) typeText(text string) {
+	runes := []rune(text)
+	if len(runes) > maxTypedRunes {
+		b.opts.Logf("synthesized text of %d characters truncated to %d", len(runes), maxTypedRunes)
+		runes = runes[:maxTypedRunes]
 	}
-	sendKeys(ev)
+	units := utf16.Encode(runes)
+	for start := 0; start < len(units); start += typeChunk {
+		chunk := units[start:min(start+typeChunk, len(units))]
+		ev := make([]keybdINPUT, 0, 2*len(chunk))
+		for _, u := range chunk {
+			ev = append(ev,
+				keybdINPUT{Type: inputKeyboard, Ki: keybdInput{Scan: u, Flags: keyeventfUnicode}},
+				keybdINPUT{Type: inputKeyboard, Ki: keybdInput{Scan: u, Flags: keyeventfUnicode | keyeventfKeyUp}})
+		}
+		sendKeys(ev)
+	}
 }
 
 // ResetInput implements agent.Backend: release everything still held.

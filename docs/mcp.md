@@ -35,7 +35,7 @@ Set `"env": { "VITRINE_HOME": "…" }` to point the server at a different VM lib
 |---|---|
 | `create_vm` | Creates a VM and installs its OS unattended in the background: `os` = `debian-13` (`desktop: false` for headless), `windows-11` (`arch`: `arm64` or `x64`; `image` = installer ISO, default the newest cached one) or `macos` (`image` = IPSW path or `latest`; macOS 27 host). Optional `cpus`, `memory`, `disk`, `username` (default `vitrine`); `start` (default true) boots it as soon as it is created |
 | `create_status` | Progress of a `create_vm` job: `creating`, `failed` (with the error), `created` or `running`, the last lines of its log, and once the VM exists its IP and whether the agent is installed |
-| `clone_vm` | Instant APFS copy of a shut-down VM with its own MAC address; the guest account carries over |
+| `clone_vm` | Instant APFS copy of a VM that is not running, with its own MAC address; the guest account carries over. A suspended VM's saved memory is not copied: the clone boots like a VM whose power was cut, so shut the source down first |
 | `list_vms`, `vm_info` | VMs with state, OS, backend and size; one VM's IP address and configuration |
 | `start_vm` | Starts or resumes a VM in the background (`gui: true` opens a window). The VM keeps running after the server exits |
 | `stop_vm` | ACPI shutdown, or `force: true` to power off |
@@ -63,9 +63,11 @@ which is what `create_status` reads.
 
 The guest account's password is random (20 letters and digits), handed to the creating process on
 stdin (`--password-stdin`, so it never shows in `ps`) and kept in the VM bundle's
-`guest-account.secret`, like a VM made in the app; no tool returns it. Names and usernames are
-limited to letters, digits, `.`, `-` and `_`, since they end up in file names, cloud-init and
-`autounattend.xml`.
+`guest-account.secret`, like a VM made in the app; no tool returns it, but `push_file` reads it
+like any file of yours (see [Security](#security)). VM names are letters, digits, `.`, `-` and `_`
+(up to 64, starting with a letter or digit); usernames are lowercase letters, digits, `-` and `_`
+(up to 32, starting with a letter or `_`) and not a built-in account name such as `administrator` or
+`root`, since they end up in file names, cloud-init and `autounattend.xml`.
 
 After `create_status` says `running`, the guest is still finishing setup: Debian installs its
 packages (and Xfce) on first boot, Windows runs Setup and restarts by itself, macOS creates the
@@ -115,9 +117,10 @@ to finish instead of mixing its keys or clicks in.
 ## Security
 
 The server runs as you and can do what `vitrinectl` can: read and write your files through
-`push_file`/`pull_file`, and run anything inside guests that Vitrine has an account for. Only connect
-it to agents you would let use your Terminal. It listens on stdio only; nothing is opened on the
-network.
+`push_file`/`pull_file` (any path, including the VM library, so an agent can copy a bundle's
+`guest-account.secret` into a guest and read it there, or write to `~/Library/LaunchAgents`), and run
+anything inside guests that Vitrine has an account for. Only connect it to agents you would let use
+your Terminal. It listens on stdio only; nothing is opened on the network.
 
 ## Testing
 

@@ -189,7 +189,7 @@ enum MCPServer {
                           "desktop": ["type": "boolean", "description": "Debian: Xfce desktop (default true)"],
                           "arch": ["type": "string", "enum": ["arm64", "x64"], "description": "Windows: arm64 (default, fast) or x64 (emulated, slow)"],
                           "image": ["type": "string", "description": "Windows: installer ISO path (default: the newest cached one). macOS: IPSW path or latest"],
-                          "username": ["type": "string", "description": "Guest account (default vitrine)"],
+                          "username": ["type": "string", "description": "Guest account (default vitrine): lowercase letters, digits, - and _, up to 32, not a built-in account name"],
                           "cpus": ["type": "integer", "minimum": 1, "maximum": 64],
                           "memory": ["type": "string", "description": "e.g. 8G"],
                           "disk": ["type": "string", "description": "e.g. 80G"],
@@ -203,7 +203,7 @@ enum MCPServer {
             [text(try creationStatus(try a.string("name")))]
         },
         Tool(name: "clone_vm", title: "Clone VM",
-             description: "Makes an instant copy (APFS clone) of a shut-down VM with its own MAC address and identity; the guest account carries over.",
+             description: "Makes an instant copy (APFS clone) of a VM that is not running, with its own MAC address and identity; the guest account carries over. A suspended VM's saved memory is not copied (the clone boots as after a power cut): shut the source down first.",
              properties: ["name": vmName, "new_name": ["type": "string"]], required: ["name", "new_name"]) { a in
             let b = try a.vm()
             let newName = try a.string("new_name")
@@ -322,7 +322,7 @@ enum MCPServer {
             let out = try blocking { try await AgentInstaller.run(in: b, command: command) }
             return [text(out.isEmpty ? "(no output)" : out)]
         },
-        Tool(name: "push_file", title: "Copy into guest", description: "Copies a file or folder from the Mac into the guest (scp).",
+        Tool(name: "push_file", title: "Copy into guest", description: "Copies a file or folder from the Mac into the guest (scp). local_path may be any file the server can read.",
              properties: ["name": vmName, "local_path": ["type": "string"], "guest_path": ["type": "string"]],
              required: ["name", "local_path", "guest_path"], destructive: true) { a in
             let b = try a.vm()
@@ -332,7 +332,7 @@ enum MCPServer {
             try blocking { try await AgentInstaller.push(in: b, local: local, remote: remote) }
             return [text("copied \(local.path) to \(b.name):\(remote)")]
         },
-        Tool(name: "pull_file", title: "Copy from guest", description: "Copies a file or folder from the guest to the Mac (scp).",
+        Tool(name: "pull_file", title: "Copy from guest", description: "Copies a file or folder from the guest to the Mac (scp). local_path may be any path the server can write.",
              properties: ["name": vmName, "guest_path": ["type": "string"], "local_path": ["type": "string"]],
              required: ["name", "guest_path", "local_path"], destructive: true) { a in
             let b = try a.vm()

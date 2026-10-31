@@ -20,6 +20,13 @@ public final class GuestFramebuffer {
     private var scratch = Data()
     /// Largest decompressed tile accepted (senders split updates into bands well below this).
     static let maxDecodedBytes = AgentProtocol.maxMessageSize
+    /// A surface of a new size is allocated (and cleared: up to 256 MB) at most this often. Frames
+    /// declaring yet another size sooner are dropped; a guest whose display really changed sends
+    /// more frames at the new size, which go through once the interval has passed. The frame budget
+    /// counts wire bytes, so without this a stream of tiny frames alternating two sizes would cost a
+    /// full allocation each.
+    var minResizeInterval: TimeInterval = 0.25
+    private var lastResize = Date.distantPast
 
     public init() {}
 
@@ -47,7 +54,12 @@ public final class GuestFramebuffer {
             throw AgentProtocolError.malformed("lz4 tile \(w)x\(h) too large")
         }
         if snapshot().surface == nil || sw != width || sh != height {
+            let now = Date()
+            guard now.timeIntervalSince(lastResize) >= minResizeInterval else {
+                throw AgentProtocolError.malformed("surface resized to \(sw)x\(sh) within \(Int(minResizeInterval * 1000)) ms of the last resize")
+            }
             try allocate(width: sw, height: sh)
+            lastResize = now
         }
         guard let surface else { return nil }
 

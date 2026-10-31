@@ -186,11 +186,12 @@ Flags: `--unix PATH`, `--tcp ADDR`, `--serial PATH`, `--port N` (vsock),
 ## Windows guests
 
 Windows 10/11 guests run on Vitrine's QEMU backend. The agent uses the
-virtio-serial port **`\\.\Global\org.vitrine.agent.0`** (vioser driver) when
-it exists. Otherwise (older VMs, no vioser) it listens on **TCP
-`0.0.0.0:20819`** (0x5153), which the host reaches through QEMU user-net
-`hostfwd=tcp:127.0.0.1:<port>-:20819`. The log says which one was chosen. Same
-protocol, one host connection at a time. It must run in the interactive user session (a logon scheduled task),
+virtio-serial port **`\\.\Global\org.vitrine.agent.0`** (vioser driver) and
+waits for it to appear; it never falls back to TCP on its own. Only when started
+with `--tcp 0.0.0.0:20819` (0x5153) does it listen on TCP, which the host
+reaches through QEMU user-net `hostfwd=tcp:127.0.0.1:<port>-:20819` (weaker: see
+Transports above). The log says which one is in use. Same protocol, one host
+connection at a time. It must run in the interactive user session (a logon scheduled task),
 not as a service: capture, input and the clipboard are per session.
 
 ```sh
@@ -207,10 +208,14 @@ powershell -ExecutionPolicy Bypass -File packaging\windows\install.ps1 -Exe .\vi
 ```
 
 This copies the exe to `C:\Program Files\Vitrine\vitrine-agent.exe`, adds an
-inbound firewall rule for TCP 20819, registers the logon task "Vitrine Agent"
-(BUILTIN\Users, restarts on failure) and starts it. `-Elevated` runs it with
-the administrator's full token so it can also drive elevated windows (UIPI
-blocks injected input into higher-integrity windows otherwise).
+inbound firewall rule for TCP 20819 (only used with `--tcp`), registers the
+logon task "Vitrine Agent" (BUILTIN\Users, restarts on failure) and starts it.
+The task runs with the user's full token (`RunLevel Highest`, without a UAC
+prompt) so the agent can also drive elevated windows (UIPI blocks injected
+input into higher-integrity windows otherwise); for an administrator account
+that means everything the host asks for runs as administrator. `-Limited` runs
+it with the filtered token instead; `-Elevated` is accepted for compatibility
+and changes nothing.
 
 How the backend works (`win/`, pure Go via `golang.org/x/sys/windows`, no cgo):
 
