@@ -485,3 +485,98 @@ public func randomMACAddress() -> String {
     bytes[0] = (bytes[0] & 0xFE) | 0x02
     return bytes.map { String(format: "%02x", $0) }.joined(separator: ":")
 }
+
+// MARK: - Decoding configs written by older builds
+//
+// Synthesized decoding requires every key, defaults or not, so a setting added later would make
+// every existing config.json unreadable. Settings with a default take it when their key is missing;
+// only what has no sensible default is required (ConfigMissingKeyTests checks each key).
+
+extension KeyedDecodingContainer {
+    func decode<T: Decodable>(_ key: Key, default value: @autoclosure () -> T) throws -> T {
+        try decodeIfPresent(T.self, forKey: key) ?? value()
+    }
+}
+
+extension VMConfig {
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(name: try c.decode(String.self, forKey: .name),
+                  guestOS: try c.decode(GuestOS.self, forKey: .guestOS),
+                  cpuCount: try c.decode(Int.self, forKey: .cpuCount),
+                  memoryMiB: try c.decode(UInt64.self, forKey: .memoryMiB))
+        version = try c.decode(.version, default: VMConfig.currentVersion)
+        id = try c.decode(.id, default: UUID())
+        disks = try c.decode(.disks, default: [])
+        shares = try c.decode(.shares, default: [])
+        network = try c.decode(.network, default: NetworkConfig())
+        display = try c.decode(.display, default: DisplayConfig())
+        features = try c.decode(.features, default: Features())
+        account = try c.decodeIfPresent(GuestAccount.self, forKey: .account)
+        installedOS = try c.decodeIfPresent(String.self, forKey: .installedOS)
+        boot = try c.decodeIfPresent(LinuxBoot.self, forKey: .boot)
+        installMedia = try c.decodeIfPresent(String.self, forKey: .installMedia)
+        backend = try c.decodeIfPresent(Backend.self, forKey: .backend)
+        architecture = try c.decodeIfPresent(Architecture.self, forKey: .architecture)
+        extraMedia = try c.decodeIfPresent([String].self, forKey: .extraMedia)
+        notes = try c.decode(.notes, default: "")
+        pendingDiskGrow = try c.decodeIfPresent(Bool.self, forKey: .pendingDiskGrow)
+        windowsSetupOffline = try c.decodeIfPresent(Bool.self, forKey: .windowsSetupOffline)
+        windowsSetupAgentSeen = try c.decodeIfPresent(Bool.self, forKey: .windowsSetupAgentSeen)
+        guestHostname = try c.decodeIfPresent(String.self, forKey: .guestHostname)
+    }
+}
+
+extension VMConfig.DiskConfig {
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(path: try c.decode(String.self, forKey: .path),
+                  readOnly: try c.decode(.readOnly, default: false),
+                  interface: try c.decode(.interface, default: .virtio))
+        caching = try c.decode(.caching, default: .automatic)
+    }
+}
+
+extension VMConfig.SharedDirectory {
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(hostPath: try c.decode(String.self, forKey: .hostPath),
+                  name: try c.decode(String.self, forKey: .name),
+                  readOnly: try c.decode(.readOnly, default: false))
+        driveLetter = try c.decodeIfPresent(String.self, forKey: .driveLetter)
+    }
+}
+
+extension VMConfig.PortForward {
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(proto: try c.decode(.proto, default: .tcp),
+                  hostAddress: try c.decode(.hostAddress, default: "127.0.0.1"),
+                  hostPort: try c.decode(Int.self, forKey: .hostPort),
+                  guestPort: try c.decode(Int.self, forKey: .guestPort))
+    }
+}
+
+extension VMConfig.DisplayConfig {
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.init()
+        widthPixels = try c.decode(.widthPixels, default: widthPixels)
+        heightPixels = try c.decode(.heightPixels, default: heightPixels)
+        pixelsPerInch = try c.decode(.pixelsPerInch, default: pixelsPerInch)
+        autoResize = try c.decode(.autoResize, default: autoResize)
+    }
+}
+
+extension VMConfig.GuestAccount {
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(fullName: try c.decode(String.self, forKey: .fullName),
+                  username: try c.decode(String.self, forKey: .username))
+        autoLogin = try c.decode(.autoLogin, default: true)
+        remoteLogin = try c.decode(.remoteLogin, default: true)
+        provisioned = try c.decode(.provisioned, default: false)
+        agentInstalled = try c.decodeIfPresent(Bool.self, forKey: .agentInstalled)
+        setupFinalized = try c.decodeIfPresent(Bool.self, forKey: .setupFinalized)
+    }
+}
