@@ -115,3 +115,20 @@ shows why activation was refused. For experiments in a throwaway guest *only*, A
 relaxes the location rule. To have an ad-hoc build claim the install entitlement for such a
 guest, set `VITRINE_AGENT_SYSTEM_EXTENSION=1`. Unless AMFI is relaxed in that guest, macOS will
 refuse to launch the resulting agent.
+
+## The bridged-networking helper
+
+Installing bridged networking copies `vitrine-bridged` from the app bundle to
+`/Library/PrivilegedHelperTools` and runs it as root. The bundle is writable by you, and by anything
+running as you, so the install script never runs a file from it. Vitrine passes the script's text
+to the administrator prompt, the script copies the binary to a root-owned file, and only then checks
+that copy with `codesign --verify -R` against a requirement Vitrine built beforehand:
+
+- **Ad-hoc builds** (the default): the binary's cdhash. Root installs exactly the file Vitrine
+  looked at; a swap between the check and the copy, or a damaged file, is refused. There is no
+  identity to anchor to, though: anything running as you could replace and re-sign the whole app.
+- **Builds signed with `VITRINE_SIGN_IDENTITY`**: also `anchor apple generic` and the Team ID
+  Vitrine itself is signed with, so the helper must come from your team.
+
+`vitrine-bridged` must be a single-architecture binary (build-app.sh builds this Mac's only):
+each slice of a universal binary has its own cdhash.
