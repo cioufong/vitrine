@@ -214,6 +214,7 @@ cloud-init YAML 测试需要 Python 3 和 PyYAML（CI 固定为 6.0.3）。GUI �
 - 更广泛的 USB 直通验收测试；VZ 物理 USB 和 VZ 自带的桥接网络需要受限权限（entitlement），因此只能在由团队签名的构建中使用（[docs/signing.md](docs/signing.md)）。
 - 在 Windows 11 上测试 Windows 客户机摄像头；用团队签名的代理端到端测试 macOS 客户机摄像头。
 - 蓝牙：客户机端广播和外设角色、L2CAP 通道、测试更多设备。
+- 加密的虚拟机磁盘：每台虚拟机一个加密的 APFS sparse bundle，密钥存放在钥匙串中并由触控 ID 保护；停止中的虚拟机磁盘无法读取，解锁前也无法启动（[#4](https://github.com/cioufong/vitrine/issues/4)）。
 
 ## 许可证
 
