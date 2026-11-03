@@ -30,6 +30,15 @@ public final class GuestFramebuffer {
 
     public init() {}
 
+    /// An update dropped by the resize limit. The guest sends only what changes after a size's first
+    /// full frame, so the surface misses those pixels until the guest sends a full frame again.
+    public struct ResizeTooSoon: LocalizedError {
+        public let width: Int, height: Int, interval: TimeInterval
+        public var errorDescription: String? {
+            "surface resized to \(width)x\(height) within \(Int(interval * 1000)) ms of the last resize"
+        }
+    }
+
     /// Surface and geometry in one consistent read. Use this from the main thread: a resize on the
     /// frame queue can replace the surface between two individual property reads.
     public func snapshot() -> (surface: IOSurface?, width: Int, height: Int, generation: UInt64) {
@@ -56,7 +65,7 @@ public final class GuestFramebuffer {
         if snapshot().surface == nil || sw != width || sh != height {
             let now = Date()
             guard now.timeIntervalSince(lastResize) >= minResizeInterval else {
-                throw AgentProtocolError.malformed("surface resized to \(sw)x\(sh) within \(Int(minResizeInterval * 1000)) ms of the last resize")
+                throw ResizeTooSoon(width: sw, height: sh, interval: minResizeInterval)
             }
             try allocate(width: sw, height: sh)
             lastResize = now

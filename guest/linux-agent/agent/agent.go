@@ -85,22 +85,28 @@ type session struct {
 // how much of that runs at once, so a host repeating requests (or, where the
 // transport accepts any peer, a guest program) cannot fork-bomb the guest. A
 // catalog request arriving while one is being built is served after it, with
-// the newest parameters; icon and launch requests beyond the limits are dropped.
+// the newest parameters. Icon requests beyond the limit wait in a bounded queue
+// (the host asks for every uncached app at once when Coherence starts, and
+// doesn't ask again); a request for an icon already queued or being read is
+// answered by that one. Launch requests beyond the limit are dropped.
 type appRequests struct {
-	mu          sync.Mutex
-	catalogBusy bool
-	catalogNext *protocol.AppCatalogRequest
-	icons       chan struct{} // semaphore, maxIconRequests wide
-	launches    chan struct{} // semaphore, maxLaunchRequests wide
+	mu           sync.Mutex
+	catalogBusy  bool
+	catalogNext  *protocol.AppCatalogRequest
+	iconsRunning int
+	iconQueue    []string
+	iconPending  map[string]bool // queued or being read
+	launches     chan struct{}   // semaphore, maxLaunchRequests wide
 }
 
 const (
 	maxIconRequests   = 8
+	maxIconQueue      = 256
 	maxLaunchRequests = 4
 )
 
 func newAppRequests() appRequests {
-	return appRequests{icons: make(chan struct{}, maxIconRequests), launches: make(chan struct{}, maxLaunchRequests)}
+	return appRequests{iconPending: map[string]bool{}, launches: make(chan struct{}, maxLaunchRequests)}
 }
 
 // New creates an agent for backend.
@@ -354,19 +360,7 @@ func (s *session) handle(m protocol.Message) {
 		}
 	case protocol.AppIconRequest:
 		if p, ok := a.backend.(AppProvider); ok {
-			select {
-			case s.apps.icons <- struct{}{}:
-				go func() {
-					defer func() { <-s.apps.icons }()
-					png, err := p.AppIcon(v.Key)
-					if err != nil {
-						s.logf("icon %s: %v", v.Key, err)
-					}
-					s.conn.Send(protocol.AppIcon{Key: v.Key, PNG: png})
-				}()
-			default:
-				s.logf("icon %s: dropped, %d requests already running", v.Key, maxIconRequests)
-			}
+			s.requestIcon(p, v.Key)
 		}
 	case protocol.AppCatalogRequest:
 		if p, ok := a.backend.(AppProvider); ok {
@@ -550,6 +544,49 @@ func (k streamSink) Logf(format string, args ...any) { k.s.logf(format, args...)
 // session at a time. Requests that arrive meanwhile are coalesced: the newest
 // one is served once the current build finishes, the ones between are dropped
 // (each would produce the same catalog).
+// requestIcon reads key's icon now if fewer than maxIconRequests are being
+// read, and otherwise queues it.
+func (s *session) requestIcon(p AppProvider, key string) {
+	s.apps.mu.Lock()
+	switch {
+	case s.apps.iconPending[key]:
+		s.apps.mu.Unlock()
+	case s.apps.iconsRunning < maxIconRequests:
+		s.apps.iconPending[key] = true
+		s.apps.iconsRunning++
+		s.apps.mu.Unlock()
+		go s.serveIcons(p, key)
+	case len(s.apps.iconQueue) < maxIconQueue:
+		s.apps.iconPending[key] = true
+		s.apps.iconQueue = append(s.apps.iconQueue, key)
+		s.apps.mu.Unlock()
+	default:
+		s.apps.mu.Unlock()
+		s.logf("icon %s: dropped, %d requests already queued", key, maxIconQueue)
+	}
+}
+
+// serveIcons answers key, then the queued requests, until the queue is empty.
+func (s *session) serveIcons(p AppProvider, key string) {
+	for {
+		png, err := p.AppIcon(key)
+		if err != nil {
+			s.logf("icon %s: %v", key, err)
+		}
+		s.conn.Send(protocol.AppIcon{Key: key, PNG: png})
+		s.apps.mu.Lock()
+		delete(s.apps.iconPending, key)
+		if len(s.apps.iconQueue) == 0 {
+			s.apps.iconsRunning--
+			s.apps.mu.Unlock()
+			return
+		}
+		key = s.apps.iconQueue[0]
+		s.apps.iconQueue = s.apps.iconQueue[1:]
+		s.apps.mu.Unlock()
+	}
+}
+
 func (s *session) requestCatalog(p AppProvider, req protocol.AppCatalogRequest) {
 	s.apps.mu.Lock()
 	if s.apps.catalogBusy {

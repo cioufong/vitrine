@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -67,15 +68,17 @@ func TestCatalogRequestsCoalesce(t *testing.T) {
 	expect[protocol.AppCatalog](h)
 }
 
-func TestIconRequestsAreBounded(t *testing.T) {
+func TestIconRequestsAreBoundedAndQueued(t *testing.T) {
 	fb := newAppBackend()
 	a := New(fb, false)
 	h, _ := newHost(t, a)
 	expect[protocol.Hello](h)
 	expect[protocol.DisplayInfo](h)
 
-	for i := 0; i < maxIconRequests+3; i++ {
-		h.send(protocol.AppIconRequest{Key: "k"})
+	// Entering Coherence with many apps whose icons aren't cached asks for all of them at once.
+	n := maxIconRequests + 5
+	for i := 0; i < n; i++ {
+		h.send(protocol.AppIconRequest{Key: fmt.Sprintf("app%d", i)})
 	}
 	h.send(protocol.Ping(1))
 	expect[protocol.Pong](h)
@@ -90,7 +93,33 @@ func TestIconRequestsAreBounded(t *testing.T) {
 	case <-time.After(50 * time.Millisecond):
 	}
 	close(fb.release)
-	for i := 0; i < maxIconRequests; i++ {
-		expect[protocol.AppIcon](h)
+	got := map[string]bool{}
+	for i := 0; i < n; i++ {
+		got[expect[protocol.AppIcon](h).Key] = true
 	}
+	if len(got) != n {
+		t.Fatalf("answered %d distinct icon requests, want %d (none dropped)", len(got), n)
+	}
+}
+
+func TestRepeatedIconRequestIsAnsweredOnce(t *testing.T) {
+	fb := newAppBackend()
+	a := New(fb, false)
+	h, _ := newHost(t, a)
+	expect[protocol.Hello](h)
+	expect[protocol.DisplayInfo](h)
+
+	for i := 0; i < 3; i++ {
+		h.send(protocol.AppIconRequest{Key: "k"})
+	}
+	h.send(protocol.Ping(1))
+	expect[protocol.Pong](h) // the repeats have been handled
+	<-fb.icons
+	close(fb.release)
+	expect[protocol.AppIcon](h)
+	h.send(protocol.Ping(2))
+	expect[protocol.Pong](h)
+	// Asked again once answered: answered again.
+	h.send(protocol.AppIconRequest{Key: "k"})
+	expect[protocol.AppIcon](h)
 }

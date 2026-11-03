@@ -3,7 +3,8 @@ import XCTest
 @testable import VitrineAgentHost
 
 final class FrameBacklogTests: XCTestCase {
-    private func connectedSession(queue: DispatchQueue, bytes: Int = 1024, count: Int = 16) throws -> (AgentSession, AgentChannel) {
+    private func connectedSession(queue: DispatchQueue, bytes: Int = 1024, count: Int = 16,
+                                  guestReceived: @escaping (AgentMessage) -> Void = { _ in }) throws -> (AgentSession, AgentChannel) {
         var fds: [Int32] = [-1, -1]
         guard socketpair(AF_UNIX, SOCK_STREAM, 0, &fds) == 0 else {
             throw NSError(domain: NSPOSIXErrorDomain, code: Int(errno))
@@ -13,6 +14,7 @@ final class FrameBacklogTests: XCTestCase {
             if case .hello = message {
                 guest.send(.hello(Hello(role: "guest", os: "test", agentVersion: "t", capabilities: [])))
             }
+            guestReceived(message)
         }, onClose: { _ in })
         let session = AgentSession(channel: AgentChannel(fileDescriptor: fds[0]), frameQueue: queue,
                                    maxPendingFrameBytes: bytes, maxPendingFrameCount: count)
@@ -109,5 +111,38 @@ final class FrameBacklogTests: XCTestCase {
             XCTAssertTrue(session.isReady)
             XCTAssertEqual(session.framebuffer.surface?.baseAddress.load(as: UInt8.self), value)
         }
+    }
+
+    /// A resize within the framebuffer's limit drops that update, and the guest goes on sending only
+    /// what changes: the session asks for Coherence again, which makes the guest send a full frame.
+    func testUpdateDroppedByResizeLimitAsksForAFullFrame() throws {
+        var requests: [CoherenceRequest] = []
+        let (session, guest) = try connectedSession(queue: DispatchQueue(label: "test.frames.resize")) {
+            if case .setCoherence(let r) = $0 { requests.append(r) }
+        }
+        defer { session.close(); guest.close() }
+        session.setCoherence(true, maxFPS: 30)
+        func sized(_ side: UInt32) -> AgentMessage {
+            .frame(FrameUpdate(surfaceWidth: side, surfaceHeight: side, x: 0, y: 0, width: 1, height: 1,
+                               data: Data(repeating: 1, count: 4)))
+        }
+        guest.send(sized(4)); guest.send(sized(8)); guest.send(sized(16))
+        let repainted = expectation(description: "Coherence asked for again")
+        func poll() {
+            if requests.count >= 2 { repainted.fulfill() } else { DispatchQueue.main.asyncAfter(deadline: .now() + 0.02, execute: poll) }
+        }
+        poll()
+        wait(for: [repainted], timeout: 3)
+        RunLoop.main.run(until: Date().addingTimeInterval(0.4))
+        XCTAssertEqual(requests.count, 2, "one repaint for the burst")
+        XCTAssertEqual(requests.last, CoherenceRequest(enabled: true, maxFPS: 30))
+
+        // With Coherence off, nothing is asked for.
+        session.setCoherence(false)
+        RunLoop.main.run(until: Date().addingTimeInterval(0.3))
+        guest.send(sized(4)); guest.send(sized(32))
+        RunLoop.main.run(until: Date().addingTimeInterval(0.6))
+        XCTAssertEqual(requests.count, 3)
+        XCTAssertEqual(requests.last?.enabled, false)
     }
 }

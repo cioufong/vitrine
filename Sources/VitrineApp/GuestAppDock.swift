@@ -116,6 +116,9 @@ final class GuestAppDock {
     private var runningNames: [String: [String: String]] = [:]
     /// Apps waiting for their icon before the proxy starts: vm path → key → name.
     private var waitingForIcon: [String: [String: String]] = [:]
+    /// Icons asked for whose Dock icon went up generic after the wait: cached if they still come,
+    /// so the app's next Dock icon has it.
+    private var lateIcons: [String: Set<String>] = [:]
     /// Apps that should have a Dock icon right now (vm path → key → name); a proxy that finishes
     /// launching after its app went away is quit again.
     private var wanted: [String: [String: String]] = [:]
@@ -167,6 +170,7 @@ final class GuestAppDock {
                 // Don't wait forever for a guest that never answers.
                 DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in
                     guard let self, let name = self.waitingForIcon[vm]?.removeValue(forKey: key) else { return }
+                    self.lateIcons[vm, default: []].insert(key)
                     self.launchProxy(bundle, key: key, name: name)
                 }
             }
@@ -176,13 +180,16 @@ final class GuestAppDock {
     /// An icon arrived from the guest: cache it and show the Dock icon that was waiting for it.
     /// Only icons this side asked for are taken, and only reasonably sized ones.
     func receivedIcon(_ bundle: VMBundle, _ icon: AppIcon) {
-        guard let name = waitingForIcon[bundle.url.path]?.removeValue(forKey: icon.key) else { return }
+        let vm = bundle.url.path
+        let name = waitingForIcon[vm]?.removeValue(forKey: icon.key)
+        let late = lateIcons[vm]?.remove(icon.key) != nil
+        guard name != nil || late else { return }
         if !icon.png.isEmpty, icon.png.count <= Self.maxIconBytes, ICNS.pngSize(icon.png) != nil || NSImage(data: icon.png) != nil {
             let url = iconURL(bundle, key: icon.key)
             try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
             try? icon.png.write(to: url)
         }
-        launchProxy(bundle, key: icon.key, name: name)
+        if let name { launchProxy(bundle, key: icon.key, name: name) }
     }
 
     private func launchProxy(_ bundle: VMBundle, key: String, name: String) {
@@ -253,6 +260,7 @@ final class GuestAppDock {
         running[vm] = nil
         runningNames[vm] = nil
         waitingForIcon[vm] = nil
+        lateIcons[vm] = nil
         wanted[vm] = nil
     }
 

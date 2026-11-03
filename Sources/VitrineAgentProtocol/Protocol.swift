@@ -155,6 +155,33 @@ public struct WindowList: Codable, Equatable, Sendable {
                 && ($0.bundleID?.utf8.count ?? 0) <= Self.maxStringLength
         }
     }
+
+    /// The list cut to the limits above: the frontmost `maxWindows` windows, strings shortened on a
+    /// character boundary. Guests send titles as they find them (a browser tab's can be any
+    /// length), so a long one must not fail the message, which would close the channel again on
+    /// every reconnect while that window exists.
+    public func clamped() -> WindowList {
+        WindowList(windows: windows.prefix(Self.maxWindows).map {
+            var w = $0
+            w.title = Self.clamp(w.title)
+            w.appName = Self.clamp(w.appName)
+            w.bundleID = w.bundleID.map(Self.clamp)
+            return w
+        })
+    }
+
+    static func clamp(_ s: String) -> String {
+        guard s.utf8.count > maxStringLength else { return s }
+        var out = ""
+        var bytes = 0
+        for c in s {
+            let n = c.utf8.count
+            guard bytes + n <= maxStringLength else { break }
+            out.append(c)
+            bytes += n
+        }
+        return out
+    }
 }
 
 /// Dirty rectangle of the guest display framebuffer. Pixels are BGRA8 premultiplied.
@@ -648,7 +675,7 @@ public enum AgentCodec {
         switch type {
         case .hello: return .hello(try decoder.decode(Hello.self, from: payload))
         case .windowList:
-            let list = try decoder.decode(WindowList.self, from: payload)
+            let list = try decoder.decode(WindowList.self, from: payload).clamped()
             guard list.isSane else { throw AgentProtocolError.malformed("window list") }
             return .windowList(list)
         case .displayInfo: return .displayInfo(try decoder.decode(DisplayInfo.self, from: payload))
