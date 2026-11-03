@@ -1,6 +1,6 @@
 #!/bin/bash
 # Cross-compiles the Linux guest agent (static; arm64 and amd64) and assembles dist/linux-agent/:
-# vitrine-agent-<arch> + install.sh + systemd/XDG/udev files. Requires Go ≥ 1.21.
+# vitrine-agent-<arch> + install.sh + systemd/XDG/udev files. Requires Go ≥ 1.26.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 GO="${GO:-go}"

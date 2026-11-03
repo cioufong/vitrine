@@ -190,7 +190,8 @@ public enum QEMUArguments {
         } else if config.network.isConnected {
             var fwd = config.network.mode == .hostOnly ? ",restrict=on" : ""
             fwd += options.agentTCPPort.map { ",hostfwd=tcp:127.0.0.1:\($0)-:\(agentGuestTCPPort)" } ?? ""
-            for f in config.network.portForwards {
+            // validate() rejects these; never splice an unchecked address into the option string.
+            for f in config.network.portForwards where VMConfig.PortForward.isListenAddress(f.hostAddress) {
                 fwd += ",hostfwd=\(f.proto.rawValue):\(f.hostAddress):\(f.hostPort)-:\(f.guestPort)"
             }
             fwd += options.sshPort.map { ",hostfwd=tcp:127.0.0.1:\($0)-:22" } ?? ""

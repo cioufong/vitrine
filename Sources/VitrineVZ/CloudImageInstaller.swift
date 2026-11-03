@@ -1,5 +1,6 @@
 import Foundation
 import VitrineCore
+import CryptoKit
 
 /// One-click Linux desktops from official cloud images + cloud-init:
 /// downloads the image, grows the disk, and builds a NoCloud seed ISO that creates the user, enables
@@ -11,6 +12,9 @@ public enum CloudImageInstaller {
         public var url: URL
         /// File inside the archive that holds the raw disk (nil when `url` is already raw).
         public var rawMember: String?
+        /// The publisher's SHA512SUMS listing for `url` (same directory, over HTTPS). Checked on every
+        /// use, cached copy included: a "latest" image changes under the same URL.
+        public var checksums: URL
         public var desktopPackages: [String]
         public var displayManagerSetup: [String]
     }
@@ -19,6 +23,7 @@ public enum CloudImageInstaller {
         id: "debian-13", name: "Debian 13 “Trixie” (Xfce)",
         url: URL(string: "https://cloud.debian.org/images/cloud/trixie/latest/debian-13-generic-arm64.tar.xz")!,
         rawMember: "disk.raw",
+        checksums: URL(string: "https://cloud.debian.org/images/cloud/trixie/latest/SHA512SUMS")!,
         desktopPackages: ["task-xfce-desktop", "lightdm", "spice-vdagent", "xserver-xorg-video-fbdev", "fonts-noto-cjk"],
         displayManagerSetup: ["systemctl set-default graphical.target", "systemctl enable lightdm"])
 
@@ -44,9 +49,7 @@ public enum CloudImageInstaller {
 
     @discardableResult
     public static func create(_ o: Options, progress: @escaping @Sendable (Phase) -> Void = { _ in }) async throws -> VMBundle {
-        let archive = try await RestoreImages.downloadToCache(o.distro.url, subdirectory: "linux/\(o.distro.id)") { f, _, _ in
-            progress(.downloading(f))
-        }
+        let archive = try await verifiedDownload(o.distro) { progress(.downloading($0)) }
         var config = VMConfig(name: o.name, guestOS: .linux, cpuCount: o.cpuCount, memoryMiB: o.memoryMiB)
         config.boot = .efi
         config.display = o.display
@@ -130,6 +133,63 @@ public enum CloudImageInstaller {
         final_message: "vitrine: cloud-init finished"
 
         """
+    }
+
+    // MARK: Image integrity
+
+    /// Downloads (or reuses) the distro's image and checks it against the publisher's SHA512SUMS.
+    /// A cached copy that no longer matches (a newer "latest", or a damaged file) is downloaded again
+    /// once; a fresh download that does not match is deleted and the install fails.
+    static func verifiedDownload(_ distro: Distro, progress: @escaping @Sendable (Double) -> Void) async throws -> URL {
+        for attempt in 0..<2 {
+            // Fetched per attempt: "latest" may have moved on while the first copy was checked.
+            let expected = try await expectedSHA512(for: distro)
+            let file = try await RestoreImages.downloadToCache(distro.url, subdirectory: "linux/\(distro.id)") { f, _, _ in
+                progress(f)
+            }
+            if try sha512(of: file) == expected { return file }
+            try FileManager.default.removeItem(at: file)
+            if attempt == 1 {
+                throw VitrineError.backend("\(distro.url.lastPathComponent) does not match its published SHA-512 checksum; the download was deleted")
+            }
+        }
+        preconditionFailure("unreachable")
+    }
+
+    static func expectedSHA512(for distro: Distro) async throws -> String {
+        guard distro.checksums.scheme == "https" else {
+            throw VitrineError.invalidConfig("checksum list must be fetched over HTTPS")
+        }
+        let (data, response) = try await URLSession.shared.data(from: distro.checksums)
+        guard (response as? HTTPURLResponse)?.statusCode == 200, let text = String(data: data, encoding: .utf8) else {
+            throw VitrineError.backend("could not fetch \(distro.checksums.absoluteString)")
+        }
+        guard let digest = sha512Entry(in: text, for: distro.url.lastPathComponent) else {
+            throw VitrineError.backend("\(distro.checksums.absoluteString) lists no checksum for \(distro.url.lastPathComponent)")
+        }
+        return digest
+    }
+
+    /// The digest for `file` in a `sha512sum` listing ("<128 hex>  name", optionally "*name").
+    static func sha512Entry(in listing: String, for file: String) -> String? {
+        for line in listing.split(whereSeparator: \.isNewline) {
+            let parts = line.split(separator: " ", maxSplits: 1, omittingEmptySubsequences: true)
+            guard parts.count == 2 else { continue }
+            var name = parts[1].trimmingCharacters(in: .whitespaces)
+            if name.hasPrefix("*") { name.removeFirst() }
+            let digest = parts[0].lowercased()
+            guard name == file, digest.count == 128, digest.allSatisfy(\.isHexDigit) else { continue }
+            return digest
+        }
+        return nil
+    }
+
+    static func sha512(of file: URL) throws -> String {
+        let handle = try FileHandle(forReadingFrom: file)
+        defer { try? handle.close() }
+        var hasher = SHA512()
+        while let chunk = try handle.read(upToCount: 8 << 20), !chunk.isEmpty { hasher.update(data: chunk) }
+        return hasher.finalize().map { String(format: "%02x", $0) }.joined()
     }
 
     static func makeSeedISO(at url: URL, options: Options, hostname: String, mac: String) throws {

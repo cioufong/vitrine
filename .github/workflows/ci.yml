@@ -12,9 +12,10 @@ jobs:
       - uses: actions/checkout@v4
       - name: Select Xcode
         run: sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | sort -V | tail -1)"
+      # Newest patched release rather than go.mod's minimum (go 1.26.0 would pin an unpatched toolchain).
       - uses: actions/setup-go@v5
         with:
-          go-version-file: guest/linux-agent/go.mod
+          go-version: stable
       - name: Toolchain versions
         run: xcodebuild -version && swift --version
       - name: Build

@@ -125,7 +125,7 @@ a vsock device, which would leave the agent unreachable under QEMU.)
 
 ## Build
 
-Requires Go 1.21+.
+Requires Go 1.26+.
 
 ```sh
 cd guest/linux-agent
