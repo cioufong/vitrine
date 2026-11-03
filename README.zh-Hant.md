@@ -295,6 +295,8 @@ cloud-init YAML 測試需要 Python 3 與 PyYAML（CI 固定使用 6.0.3）。GU
   受限的 entitlement，因此只能在團隊簽署的建置中運作（[docs/signing.md](docs/signing.md)）。
 - 在 Windows 11 上測試 Windows 客體系統相機；以團隊簽署的 agent 端對端測試 macOS 客體系統相機。
 - 藍牙：客體系統端的廣播與周邊裝置角色、L2CAP 通道、測試更多裝置。
+- 加密的虛擬機器磁碟：每台虛擬機器一個加密的 APFS sparse bundle，金鑰存在鑰匙圈並以 Touch ID 保護；
+  停止中的虛擬機器磁碟無法讀取，解鎖前也無法啟動（[#4](https://github.com/cioufong/vitrine/issues/4)）。
 
 ## 授權
 

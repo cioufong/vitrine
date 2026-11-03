@@ -301,6 +301,8 @@ and scripted agents; they never boot guests.
 - The Windows guest camera tested on Windows 11; the macOS guest camera tested end to end with a
   team-signed agent.
 - Bluetooth: guest-side advertising and peripheral role, L2CAP channels, more devices tested.
+- Encrypted VM disks: an encrypted APFS sparse bundle per VM, its key in the Keychain behind
+  Touch ID, so a stopped VM's disks can't be read and it can't start until you unlock it ([#4](https://github.com/cioufong/vitrine/issues/4)).
 
 ## License
 
