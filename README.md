@@ -235,6 +235,11 @@ If a restore and its rollback both fail, Vitrine retains the original backups, r
 directory, and blocks VM startup and another restore until that workspace has been recovered. Never
 delete a retained `.restore-*` directory before recovering the files it contains.
 
+A `config.json` written by an older Vitrine loads with defaults for the settings added since. One
+that can't be read (damaged, or from a newer Vitrine, e.g. with a network mode this build doesn't
+know) is left as it is and still listed, marked unreadable with the reason, in the app and in
+`vitrinectl list`.
+
 ### Tests
 
 ```bash
