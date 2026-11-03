@@ -224,7 +224,8 @@ vitrinectl list
 Writable disks must be regular files referenced by safe paths inside the VM bundle. Snapshots and
 clones reject external writable disks, parent traversal and symbolic-link aliases before making
 changes. Move those disks into the bundle or attach them read-only first. External read-only media
-are referenced rather than captured; keep them available at their original location.
+are referenced rather than captured; keep them available at their original location. A suspended VM
+can't be cloned (its disks are only consistent with its saved memory): shut it down first.
 
 Restoring a snapshot checks its manifest, required disks and saved-memory metadata before replacing
 VM state. Incomplete legacy snapshots are rejected. A saved state with writable hot-plug USB media

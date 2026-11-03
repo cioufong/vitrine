@@ -374,6 +374,11 @@ public struct SnapshotStore: Sendable {
 public enum VMCloner {
     public static func clone(_ source: VMBundle, to dest: URL, newName: String) throws -> VMBundle {
         try source.withExclusiveLock {
+            // A suspended guest's disks are consistent only with its saved memory, which a clone
+            // can't take (it gets a new identity); booting the copy would be like after a power cut.
+            if source.hasSavedState {
+                throw VitrineError.invalidConfig("\(source.name) is suspended; shut it down (or discard its suspended state) before cloning it")
+            }
             var config = try source.loadConfig()
             // Validate all source state before creating even the destination's parent. A writable
             // symlink or ../ path would otherwise leave the clone sharing or escaping its bundle.
