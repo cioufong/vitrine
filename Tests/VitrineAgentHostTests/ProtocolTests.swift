@@ -11,19 +11,31 @@ final class ProtocolTests: XCTestCase {
         XCTAssertNil(try d.next(), file: file, line: line)
     }
 
-    func testOversizedWindowListIsRejected() throws {
+    /// Guests send titles and lists as they find them: too long or too many is cut, not refused
+    /// (refusing closed the channel, again on every reconnect while the window existed).
+    func testOversizedWindowListIsClamped() throws {
         let window = WindowInfo(id: 1, pid: 1, appName: "a", bundleID: nil, title: "t",
                                 frame: Rect(x: 0, y: 0, width: 10, height: 10), layer: 0, kind: .normal, isFocused: false)
         try roundTrip(.windowList(WindowList(windows: Array(repeating: window, count: WindowList.maxWindows))))
-        let tooMany = try AgentCodec.encode(.windowList(WindowList(windows: Array(repeating: window, count: WindowList.maxWindows + 1))))
+        var front = window; front.id = 99
         var d = MessageDeframer()
-        d.append(tooMany)
-        XCTAssertThrowsError(try d.next())
+        d.append(try AgentCodec.encode(.windowList(WindowList(windows: [front] + Array(repeating: window, count: WindowList.maxWindows)))))
+        guard case .windowList(let cut)? = try d.next() else { return XCTFail("no window list") }
+        XCTAssertEqual(cut.windows.count, WindowList.maxWindows)
+        XCTAssertEqual(cut.windows.first?.id, 99, "frontmost windows kept")
+
         var long = window
-        long.title = String(repeating: "x", count: WindowList.maxStringLength + 1)
+        // 3-byte characters, so the cut falls inside one unless it respects character boundaries.
+        long.title = String(repeating: "視", count: WindowList.maxStringLength)
+        long.appName = String(repeating: "a", count: WindowList.maxStringLength + 1)
+        long.bundleID = String(repeating: "b", count: 5000)
         d = MessageDeframer()
         d.append(try AgentCodec.encode(.windowList(WindowList(windows: [long]))))
-        XCTAssertThrowsError(try d.next())
+        guard case .windowList(let list)? = try d.next(), let w = list.windows.first else { return XCTFail("no window list") }
+        XCTAssertEqual(w.title, String(repeating: "視", count: WindowList.maxStringLength / 3))
+        XCTAssertEqual(w.appName.utf8.count, WindowList.maxStringLength)
+        XCTAssertEqual(w.bundleID?.utf8.count, WindowList.maxStringLength)
+        XCTAssertNil(try d.next())
     }
 
     func testAllMessagesRoundTrip() throws {
