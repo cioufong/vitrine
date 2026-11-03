@@ -35,7 +35,7 @@ Set `"env": { "VITRINE_HOME": "…" }` to point the server at a different VM lib
 |---|---|
 | `create_vm` | Creates a VM and installs its OS unattended in the background: `os` = `debian-13` (`desktop: false` for headless), `windows-11` (`arch`: `arm64` or `x64`; `image` = installer ISO, default the newest cached one) or `macos` (`image` = IPSW path or `latest`; macOS 27 host). Optional `cpus`, `memory`, `disk`, `username` (default `vitrine`); `start` (default true) boots it as soon as it is created |
 | `create_status` | Progress of a `create_vm` job: `creating`, `failed` (with the error), `created` or `running`, the last lines of its log, and once the VM exists its IP and whether the agent is installed |
-| `clone_vm` | Instant APFS copy of a VM that is not running, with its own MAC address; the guest account carries over. A suspended VM's saved memory is not copied: the clone boots like a VM whose power was cut, so shut the source down first |
+| `clone_vm` | Instant APFS copy of a VM that is not running, with its own MAC address; the guest account carries over. A suspended VM is refused: shut it down first |
 | `list_vms`, `vm_info` | VMs with state, OS, backend and size; one VM's IP address and configuration |
 | `start_vm` | Starts or resumes a VM in the background (`gui: true` opens a window). The VM keeps running after the server exits |
 | `stop_vm` | ACPI shutdown, or `force: true` to power off |

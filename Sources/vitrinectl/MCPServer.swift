@@ -203,7 +203,7 @@ enum MCPServer {
             [text(try creationStatus(try a.string("name")))]
         },
         Tool(name: "clone_vm", title: "Clone VM",
-             description: "Makes an instant copy (APFS clone) of a VM that is not running, with its own MAC address and identity; the guest account carries over. A suspended VM's saved memory is not copied (the clone boots as after a power cut): shut the source down first.",
+             description: "Makes an instant copy (APFS clone) of a VM that is not running, with its own MAC address and identity; the guest account carries over. A suspended VM can't be cloned: shut it down first (or discard its suspended state, which loses what was in its memory).",
              properties: ["name": vmName, "new_name": ["type": "string"]], required: ["name", "new_name"]) { a in
             let b = try a.vm()
             let newName = try a.string("new_name")
