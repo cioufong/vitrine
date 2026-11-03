@@ -102,6 +102,8 @@ Snapshots
 
 Agents
   mcp                                    Model Context Protocol server on stdio (see docs/mcp.md)
+  mcp allow|disallow <path>              Let the MCP file tools use a protected path (or stop)
+  mcp allowed                            List the paths allowed that way
 
 Restore images
   ipsw latest                            Show the newest IPSW this Mac supports
@@ -299,7 +301,19 @@ do {
         print(usage)
 
     case "mcp":
-        MCPServer.run()
+        let policy = MCPPathPolicy()
+        switch args.positional.first {
+        case nil:
+            MCPServer.run()
+        case "allow", "disallow":
+            let path = args.arg(1, "path")
+            try policy.setAllowed(path, args.positional[0] == "allow")
+            print("\(args.positional[0] == "allow" ? "allowed" : "no longer allowed"): \(MCPPathPolicy.resolve(path))")
+        case "allowed":
+            for p in policy.allowList() { print(p) }
+        default:
+            die("unknown mcp subcommand \(args.positional[0])\n\n\(usage)")
+        }
 
     case "list":
         let vms = VMLibrary.list()

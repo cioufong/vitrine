@@ -43,8 +43,8 @@ claude mcp add vitrine -- "$PWD/.build/release/vitrinectl" mcp  # or any MCP cli
 Then ask, for example: *“Create a Windows 11 VM called win-test, wait until it's set up, install
 7-Zip in it and take a screenshot of it open.”* The agent uses `create_vm`, polls `create_status`,
 and works the guest through `exec`, `screenshot`, `click` and `type_text`; no tool returns the
-guest account's password (it stays in the VM bundle, which `push_file` can read like any other file
-of yours: see the security note in [docs/mcp.md](docs/mcp.md#security)).
+guest account's password, and the file tools refuse the VM bundle and other protected locations
+unless you allow them (see the security note in [docs/mcp.md](docs/mcp.md#security)).
 
 ## Highlights
 

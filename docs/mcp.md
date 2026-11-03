@@ -63,8 +63,8 @@ which is what `create_status` reads.
 
 The guest account's password is random (20 letters and digits), handed to the creating process on
 stdin (`--password-stdin`, so it never shows in `ps`) and kept in the VM bundle's
-`guest-account.secret`, like a VM made in the app; no tool returns it, but `push_file` reads it
-like any file of yours (see [Security](#security)). VM names are letters, digits, `.`, `-` and `_`
+`guest-account.secret`, like a VM made in the app. No tool returns it, and the file tools refuse the
+VM library unless you allow it (see [Security](#security)). VM names are letters, digits, `.`, `-` and `_`
 (up to 64, starting with a letter or digit); usernames are lowercase letters, digits, `-` and `_`
 (up to 32, starting with a letter or `_`) and not a built-in account name such as `administrator` or
 `root`, since they end up in file names, cloud-init and `autounattend.xml`.
@@ -117,10 +117,24 @@ to finish instead of mixing its keys or clicks in.
 ## Security
 
 The server runs as you and can do what `vitrinectl` can: read and write your files through
-`push_file`/`pull_file` (any path, including the VM library, so an agent can copy a bundle's
-`guest-account.secret` into a guest and read it there, or write to `~/Library/LaunchAgents`), and run
-anything inside guests that Vitrine has an account for. Only connect it to agents you would let use
-your Terminal. It listens on stdio only; nothing is opened on the network.
+`push_file`/`pull_file` (and `create_vm`'s `image`, which the new guest can read), and run anything
+inside guests that Vitrine has an account for. It listens on stdio only; nothing is opened on the
+network.
+
+The file tools refuse protected locations: the VM library (guest passwords) and Vitrine's support
+folder, `~/.ssh`, `~/.gnupg`, cloud and package-registry credentials (`~/.aws`, `~/.kube`,
+`~/.docker`, `~/.netrc`, `~/.npmrc`, …), `~/Library/Keychains`, launch agents and daemons, shell
+startup files, git configuration, and AI agents' settings (`~/.claude`, `~/.codex`, `~/.cursor`, …),
+where a written file runs code later. Paths are checked after resolving symlinks, including symlinks
+inside a folder being copied. To use one anyway:
+
+- allow it for good: `vitrinectl mcp allow PATH` (`mcp disallow PATH` undoes it, `mcp allowed` lists them);
+- or approve it when asked: clients that support MCP elicitation show the request, and accepting
+  allows that one call.
+
+This keeps an agent that only has the MCP server away from your secrets. An agent that can also run
+commands on the Mac can run `vitrinectl mcp allow` itself, so only connect the server to agents you
+would let use your Terminal.
 
 ## Testing
 
