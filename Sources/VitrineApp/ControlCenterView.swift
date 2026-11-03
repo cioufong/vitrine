@@ -19,6 +19,8 @@ struct ControlCenterView: View {
                         ForEach(model.bundles, id: \.self) { b in
                             if let c = model.controller(for: b) {
                                 VMCard(bundle: b, controller: c)
+                            } else {
+                                UnreadableVMCard(bundle: b)
                             }
                         }
                     }
@@ -53,6 +55,35 @@ private struct EmptyLibraryView: View {
                 .buttonStyle(.borderedProminent).controlSize(.large)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+/// A VM whose config.json can't be read (damaged, or written by a newer Vitrine): still listed, so
+/// it doesn't look deleted, with the reason and a way to get at the files.
+struct UnreadableVMCard: View {
+    let bundle: VMBundle
+
+    private var reason: String {
+        do { _ = try bundle.loadConfig(); return "" } catch { return error.localizedDescription }
+    }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 22)).foregroundStyle(.orange)
+                .frame(width: 56, height: 40)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(bundle.name).font(.headline).lineLimit(1)
+                Text("Can't read this VM's settings").font(.subheadline).foregroundStyle(.secondary)
+                Text(reason).font(.caption).foregroundStyle(.secondary).lineLimit(2).textSelection(.enabled)
+                    .help(reason)
+            }
+            Spacer(minLength: 0)
+            Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([bundle.url]) }
+                .buttonStyle(.borderless)
+        }
+        .padding(10)
+        .background(RoundedRectangle(cornerRadius: 10).fill(Color.primary.opacity(0.03)))
     }
 }
 

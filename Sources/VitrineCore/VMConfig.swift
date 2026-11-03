@@ -148,7 +148,17 @@ public struct VMConfig: Codable, Equatable, Sendable {
 
         public init(from decoder: Decoder) throws {
             let c = try decoder.container(keyedBy: CodingKeys.self)
-            mode = (try? c.decodeIfPresent(Mode.self, forKey: .mode)) ?? .nat
+            // An unknown mode (a newer build's, or a typo) must not become NAT: that would give a
+            // guest meant to be offline or host-only the internet, and the next save would lose it.
+            if let raw = try c.decodeIfPresent(String.self, forKey: .mode) {
+                guard let known = Mode(rawValue: raw) else {
+                    throw DecodingError.dataCorruptedError(forKey: .mode, in: c, debugDescription:
+                        "unknown network mode \"\(raw)\" (known: \(Mode.allCases.map(\.rawValue).joined(separator: ", "))); it may come from a newer Vitrine")
+                }
+                mode = known
+            } else {
+                mode = .nat
+            }
             networkName = try c.decodeIfPresent(String.self, forKey: .networkName)
             bridgeInterface = try c.decodeIfPresent(String.self, forKey: .bridgeInterface)
             fixedIPv4 = try c.decodeIfPresent(String.self, forKey: .fixedIPv4)
