@@ -102,7 +102,7 @@ Verified end-to-end on an M1 Max running macOS 27:
   on which date and commit, with display latency and known issues — [docs/verification.md](docs/verification.md).
 - **Everyday VM features**: disposable mode (every run starts from the same disk), APFS clones with
   their own MAC and DHCP host name, NAT / host-only / named VM-to-VM networks with fixed addresses /
-  bridged (through a small root helper you install once) / no networking, with TCP and UDP port
+  bridged (through a small root helper you install once; its code signature is checked before it runs as root) / no networking, with TCP and UDP port
   forwards on both backends ([docs/networking.md](docs/networking.md)),
   shared folders (virtiofs on VZ, 9p on QEMU Linux), serial consoles (`vitrinectl console`, scriptable),
   a QEMU GDB stub, file push/pull over SSH, importing qcow2/VMDK/VHDX/VDI disks and UTM VMs,
