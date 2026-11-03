@@ -207,7 +207,7 @@ final class CoherenceWindow: NSWindow {
         isReleasedWhenClosed = false
         acceptsMouseMovedEvents = true
         collectionBehavior = [.managed, .participatesInCycle, .fullScreenNone]
-        level = Self.level(for: info.kind)
+        applyLevel(frame: .zero)
         let view = CoherenceView(window: self)
         view.wantsLayer = true
         view.layer = CALayer()
@@ -220,12 +220,29 @@ final class CoherenceWindow: NSWindow {
         title = info.title.isEmpty ? info.appName : "\(info.appName) — \(info.title)"
     }
 
-    static func level(for kind: WindowInfo.Kind) -> NSWindow.Level {
+    /// The guest says what kind each window is, so a raised level is limited to what menus and
+    /// panels plausibly need: a "menu" covering most of the screen would otherwise sit above every
+    /// app on the Mac (a fake password prompt, say).
+    static func level(for kind: WindowInfo.Kind, frame: CGRect, screen: CGRect?) -> NSWindow.Level {
+        let raised: NSWindow.Level
         switch kind {
         case .normal: return .normal
-        case .panel: return .floating
-        case .menu, .menuBar: return .popUpMenu
+        case .panel: raised = .floating
+        case .menu, .menuBar: raised = .popUpMenu
         }
+        guard let screen, screen.width > 0, screen.height > 0 else { return raised }
+        let area = frame.width * frame.height
+        return area > screen.width * screen.height / 2 ? .normal : raised
+    }
+
+    /// Raised windows disappear while Vitrine is not the frontmost app, as the Mac's own menus do,
+    /// so nothing the guest draws stays above other apps' windows.
+    static func hidesOnDeactivate(for level: NSWindow.Level) -> Bool { level != .normal }
+
+    private func applyLevel(frame: CGRect) {
+        let l = Self.level(for: info.kind, frame: frame, screen: (screen ?? NSScreen.main)?.frame)
+        if level != l { level = l }
+        hidesOnDeactivate = Self.hidesOnDeactivate(for: l)
     }
 
     var boundSurface: IOSurface? { surfaceLayer.contents as? IOSurface }
@@ -235,7 +252,7 @@ final class CoherenceWindow: NSWindow {
 
     func update(info: WindowInfo, frame: CGRect, contentsRect: CGRect, surface: IOSurface?) {
         self.info = info
-        level = Self.level(for: info.kind)
+        applyLevel(frame: frame)
         let t = info.title.isEmpty ? info.appName : "\(info.appName) — \(info.title)"
         if title != t { title = t }
         if self.frame != frame { setFrame(frame, display: false) }
