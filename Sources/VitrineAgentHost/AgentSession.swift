@@ -109,7 +109,27 @@ public final class AgentSession {
     public var pendingSendBytes: Int { channel.pendingSendBytes }
 
     public func setCoherence(_ enabled: Bool, maxFPS: Int = 60) {
-        send(.setCoherence(CoherenceRequest(enabled: enabled, maxFPS: maxFPS)))
+        let request = CoherenceRequest(enabled: enabled, maxFPS: maxFPS)
+        coherence = enabled ? request : nil
+        send(.setCoherence(request))
+    }
+
+    /// The last Coherence request, while Coherence is on.
+    private var coherence: CoherenceRequest?
+    private var repaintScheduled = false
+
+    /// Frames dropped by the framebuffer's resize limit are gone: the guest goes on sending only
+    /// what changes. Asking for Coherence again restarts the guest's capture, which starts with a
+    /// full frame (every agent version does this). Once the limit has passed, and once per burst.
+    private func repaintAfterResizeLimit() {
+        guard !repaintScheduled, coherence != nil else { return }
+        repaintScheduled = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + framebuffer.minResizeInterval) { [weak self] in
+            guard let self else { return }
+            self.repaintScheduled = false
+            guard self.isReady, let request = self.coherence else { return }
+            self.send(.setCoherence(request))
+        }
     }
 
     private func keepalive() {
@@ -174,7 +194,11 @@ public final class AgentSession {
                 case .failure(let error):
                     DispatchQueue.main.async { [weak self] in
                         guard let self, self.isReady else { return }
-                        self.onLog?("dropping frame: \(error.localizedDescription)")
+                        if error is GuestFramebuffer.ResizeTooSoon {
+                            self.repaintAfterResizeLimit()
+                        } else {
+                            self.onLog?("dropping frame: \(error.localizedDescription)")
+                        }
                     }
                 }
             }
