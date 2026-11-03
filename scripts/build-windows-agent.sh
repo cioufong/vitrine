@@ -1,6 +1,6 @@
 #!/bin/bash
 # Cross-compiles the Windows guest agent (arm64 and amd64 GUI executables, pure Go) and assembles
-# dist/windows-agent/: vitrine-agent-<arch>.exe + install.ps1. Requires Go ≥ 1.21.
+# dist/windows-agent/: vitrine-agent-<arch>.exe + install.ps1. Requires Go ≥ 1.26.
 # With zig (brew install zig) it also builds the camera media source, vitrine-camera-<arch>.dll
 # (guest/windows-camera; libc++ linked statically, so it needs nothing beyond Windows itself);
 # without zig the agent is built anyway, without Windows camera support.

@@ -35,6 +35,22 @@ final class VMConfigTests: XCTestCase {
         XCTAssertThrowsError(try c.validate(hostCPUs: 8, hostMemoryMiB: 16384))
     }
 
+    func testPortForwardHostAddressMustBeAnAddressLiteral() {
+        func check(_ address: String) throws {
+            var c = makeConfig()
+            c.network.portForwards = [.init(hostAddress: address, hostPort: 8080, guestPort: 80)]
+            try c.validate(hostCPUs: 8, hostMemoryMiB: 16384)
+        }
+        for ok in ["127.0.0.1", "0.0.0.0", "192.168.1.20", "::1", "::"] {
+            XCTAssertNoThrow(try check(ok), ok)
+        }
+        // Three dots used to be enough; these would add options to QEMU's -netdev (guestfwd runs a host command).
+        for bad in ["1.2.3.4,guestfwd=tcp::1-cmd:/usr/bin/true", "1.2.3,4", "a.b.c.d", "1.2.3.4 ", "999.1.1.1",
+                    "1.2.3.4=", "", "localhost", "fe80::1"] {
+            XCTAssertThrowsError(try check(bad), bad)
+        }
+    }
+
     func testMACAddressIsLocallyAdministeredUnicast() {
         for _ in 0..<50 {
             let mac = randomMACAddress()

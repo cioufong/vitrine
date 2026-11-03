@@ -138,6 +138,15 @@ final class QEMUArgumentsTests: XCTestCase {
         XCTAssertTrue(a.contains("user,id=net0,hostfwd=tcp:127.0.0.1:41234-:20819,hostfwd=tcp:127.0.0.1:41235-:22"))
     }
 
+    func testPortForwardAddressCannotInjectNetdevOptions() {
+        var c = config(.linux, .aarch64)
+        c.network.portForwards = [.init(hostAddress: "1.2.3.4,guestfwd=tcp::1-cmd:/usr/bin/true", hostPort: 8080, guestPort: 80),
+                                  .init(hostAddress: "0.0.0.0", hostPort: 2222, guestPort: 22)]
+        let a = joined(QEMUArguments.build(config: c, bundle: bundle, env: env, sockets: sockets, options: .init(withTPM: false)))
+        XCTAssertFalse(a.contains("cmd:/usr/bin/true"))
+        XCTAssertTrue(a.contains(",hostfwd=tcp:0.0.0.0:2222-:22"))
+    }
+
     func testResumeAddsIncoming() {
         let a = joined(QEMUArguments.build(config: config(.windows, .aarch64), bundle: bundle, env: env, sockets: sockets,
                                            options: .init(withTPM: true, incomingState: bundle.qemuStateURL)))

@@ -181,6 +181,13 @@ public struct VMConfig: Codable, Equatable, Sendable {
             self.init(proto: proto, hostAddress: parts.count == 3 ? parts[0] : "127.0.0.1", hostPort: host, guestPort: guest)
         }
 
+        /// A dotted-quad IPv4 literal (parsed, not pattern-matched) or the IPv6 loopback/any addresses.
+        public static func isListenAddress(_ s: String) -> Bool {
+            if s == "::1" || s == "::" { return true }
+            var a = in_addr()
+            return s.utf8.allSatisfy({ ($0 >= 0x30 && $0 <= 0x39) || $0 == 0x2E }) && inet_pton(AF_INET, s, &a) == 1
+        }
+
         public var spec: String {
             (proto == .udp ? "udp:" : "") + (hostAddress == "127.0.0.1" ? "" : hostAddress + ":") + "\(hostPort):\(guestPort)"
         }
@@ -395,7 +402,9 @@ public extension VMConfig {
             guard (1...65535).contains(f.hostPort), (1...65535).contains(f.guestPort) else {
                 throw VitrineError.invalidConfig("port forward \(f.spec): ports must be between 1 and 65535")
             }
-            guard ["127.0.0.1", "0.0.0.0", "::1", "::"].contains(f.hostAddress) || f.hostAddress.split(separator: ".").count == 4 else {
+            // The address ends up inside QEMU's comma-separated -netdev option, so anything but an
+            // address literal (",guestfwd=…-cmd:…" in a crafted config.json) would add options.
+            guard PortForward.isListenAddress(f.hostAddress) else {
                 throw VitrineError.invalidConfig("port forward \(f.spec): listen on an IPv4 address such as 127.0.0.1 or 0.0.0.0")
             }
             guard forwarded.insert("\(f.proto.rawValue):\(f.hostPort)").inserted else {

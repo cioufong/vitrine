@@ -1,8 +1,8 @@
 module github.com/cioufong/vitrine/guest/linux-agent
 
-go 1.21
+go 1.26.0
 
 require (
 	github.com/jezek/xgb v1.1.1
-	golang.org/x/sys v0.20.0
+	golang.org/x/sys v0.49.0
 )
