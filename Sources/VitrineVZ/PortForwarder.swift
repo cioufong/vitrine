@@ -13,18 +13,27 @@ final class PortForwarder: @unchecked Sendable {
     private let queue = DispatchQueue(label: "vitrine.port-forward")
     private let guestAddress: @Sendable () -> String?
     private let log: @Sendable (String) -> Void
+    /// Seconds to wait for the guest to accept a relayed TCP connection.
+    private let guestConnectTimeout: Int
 
-    init(guestAddress: @escaping @Sendable () -> String?, log: @escaping @Sendable (String) -> Void) {
+    init(guestAddress: @escaping @Sendable () -> String?, log: @escaping @Sendable (String) -> Void,
+         guestConnectTimeout: Int = 10) {
         self.guestAddress = guestAddress
         self.log = log
+        self.guestConnectTimeout = guestConnectTimeout
     }
+
+    /// Flows currently relayed (for tests).
+    var flowCount: Int { queue.sync { flows.count } }
 
     /// UDP flows end after this long without a datagram either way.
     static let udpIdleTimeout: TimeInterval = 120
     /// Flows (TCP connections and UDP peers) relayed at once, over all of a VM's forwards. Each one
     /// holds a connection to the guest; a port sweep against a forward bound to 0.0.0.0 would
-    /// otherwise open one per source port and keep it for `udpIdleTimeout`.
-    static let maxFlows = 4096
+    /// otherwise open one per source port and keep it for `udpIdleTimeout`. Kept low because
+    /// Network.framework walks every connection to the same guest endpoint each time one starts:
+    /// a few thousand pin the forwarder's CPU, and state updates (closes included) fall minutes behind.
+    static let maxFlows = 512
     private var flowLimitReported = false
 
     func start(_ forwards: [VMConfig.PortForward]) {
@@ -85,7 +94,13 @@ final class PortForwarder: @unchecked Sendable {
             client.cancel()
             return
         }
-        let guest = NWConnection(host: NWEndpoint.Host(ip), port: port, using: f.proto == .tcp ? .tcp : .udp)
+        // Without a timeout a guest that never answers (accept queue full, firewall dropping SYNs)
+        // keeps the flow forever: the client is only read once the guest side is up, so its going
+        // away goes unnoticed, and Network.framework keeps retrying with a fresh socket each time.
+        let tcp = NWProtocolTCP.Options()
+        tcp.connectionTimeout = guestConnectTimeout
+        let guest = NWConnection(host: NWEndpoint.Host(ip), port: port,
+                                 using: f.proto == .tcp ? NWParameters(tls: nil, tcp: tcp) : .udp)
         let id = UUID()
         let flow = ForwardFlow(client: client, guest: guest, queue: queue) { [weak self] in self?.flows[id] = nil }
         flows[id] = flow
