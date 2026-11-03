@@ -11,7 +11,9 @@ final class NetworkModeDecodingTests: XCTestCase {
 
     func testUnknownModeIsRefused() {
         XCTAssertThrowsError(try JSONDecoder().decode(VMConfig.self, from: config(network: #"{"mode":"isolated"}"#))) { error in
-            XCTAssertTrue("\(error)".contains("unknown network mode \"isolated\""), "\(error)")
+            guard case DecodingError.dataCorrupted(let context) = error else { return XCTFail("\(error)") }
+            XCTAssertTrue(context.debugDescription.contains("unknown network mode \"isolated\""), context.debugDescription)
+            XCTAssertEqual(context.codingPath.map(\.stringValue), ["network", "mode"])
         }
     }
 
