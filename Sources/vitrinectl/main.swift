@@ -306,7 +306,12 @@ do {
         if vms.isEmpty { print("No VMs in \(VMLibrary.root.path)"); exit(0) }
         print("NAME".padding(toLength: 24, withPad: " ", startingAt: 0) + "STATE      CPU  MEMORY   DISK")
         for b in vms {
-            guard let c = try? b.loadConfig() else { continue }
+            // A VM whose config can't be read is still there: say so rather than leave it out.
+            let c: VMConfig
+            do { c = try b.loadConfig() } catch {
+                print(b.name.padding(toLength: 24, withPad: " ", startingAt: 0) + "unreadable (vitrinectl info \(b.name) says why)")
+                continue
+            }
             let disk = c.disks.first.map { DiskImage.allocatedSize(of: b.resolve($0.path)) } ?? 0
             print(b.name.padding(toLength: 24, withPad: " ", startingAt: 0)
                   + status(of: b).padding(toLength: 11, withPad: " ", startingAt: 0)

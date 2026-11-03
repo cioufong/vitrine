@@ -70,6 +70,20 @@ public struct VMBundle: Sendable, Hashable {
         return url.appendingPathComponent(expanded)
     }
 
+    /// What is wrong with a config.json, cause first (the path is long and goes last).
+    static func describe(_ error: Error) -> String {
+        func at(_ path: [CodingKey]) -> String {
+            path.isEmpty ? "" : " (at \(path.map { $0.intValue.map { "[\($0)]" } ?? $0.stringValue }.joined(separator: ".")))"
+        }
+        switch error {
+        case DecodingError.dataCorrupted(let c): return c.debugDescription + at(c.codingPath)
+        case DecodingError.keyNotFound(let key, let c): return "missing \"\(key.stringValue)\"" + at(c.codingPath)
+        case DecodingError.typeMismatch(_, let c), DecodingError.valueNotFound(_, let c):
+            return c.debugDescription + at(c.codingPath)
+        default: return "cannot parse: \(error.localizedDescription)"
+        }
+    }
+
     public func loadConfig() throws -> VMConfig {
         let data: Data
         do { data = try Data(contentsOf: configURL) } catch {
@@ -77,7 +91,7 @@ public struct VMBundle: Sendable, Hashable {
         }
         let config: VMConfig
         do { config = try JSONDecoder().decode(VMConfig.self, from: data) } catch {
-            throw VitrineError.invalidConfig("cannot parse \(configURL.path): \(error)")
+            throw VitrineError.invalidConfig("\(Self.describe(error)) in \(configURL.path)")
         }
         if config.version > VMConfig.currentVersion {
             throw VitrineError.unsupported("config version \(config.version) is newer than this Vitrine build")

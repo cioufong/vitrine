@@ -1573,6 +1573,28 @@
         }
       }
     },
+    "Can't read this VM's settings": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この仮想マシンの設定を読み込めません"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法读取此虚拟机的设置"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法讀取此虛擬機器的設定"
+          }
+        }
+      }
+    },
     "Cancel": {
       "localizations": {
         "ja": {
