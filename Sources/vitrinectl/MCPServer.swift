@@ -20,6 +20,14 @@ enum MCPServer {
     static let scalesLock = NSLock()
     /// Serializes create_vm's "is the name free?" check with starting its process.
     static let createLock = NSLock()
+    /// Whether the client said at `initialize` that it can ask its user (MCP elicitation).
+    nonisolated(unsafe) static var clientCanElicit = false
+    /// Requests this server sent to the client, by id, waiting for the client's response.
+    nonisolated(unsafe) static var pending: [String: (DispatchSemaphore, [String: Any]?)] = [:]
+    static let pendingLock = NSLock()
+    nonisolated(unsafe) static var nextRequestID = 0
+    /// How long a protected-path question waits for the user.
+    static let elicitationTimeout: TimeInterval = 120
 
     static func run() -> Never {
         // The protocol owns stdout: anything else printed (by a library, say) goes to stderr instead.
@@ -59,12 +67,17 @@ enum MCPServer {
             replyError(NSNull(), -32700, "parse error")
             return
         }
-        guard let method = msg["method"] as? String else { return } // a response to us; we send no requests
+        guard let method = msg["method"] as? String else {
+            // A response to one of our requests (elicitation).
+            if let id = msg["id"] as? String { fulfill(id, msg["result"] as? [String: Any]) }
+            return
+        }
         guard let id = msg["id"] else { return } // notifications (initialized, cancelled) need no answer
         let params = msg["params"] as? [String: Any] ?? [:]
         switch method {
         case "initialize":
             let asked = params["protocolVersion"] as? String ?? ""
+            clientCanElicit = (params["capabilities"] as? [String: Any])?["elicitation"] != nil
             reply(id, result: [
                 "protocolVersion": supportedVersions.contains(asked) ? asked : supportedVersions[0],
                 "capabilities": ["tools": ["listChanged": false]],
@@ -90,6 +103,51 @@ enum MCPServer {
         default:
             replyError(id, -32601, "method not found: \(method)")
         }
+    }
+
+    // MARK: Protected paths
+
+    static func fulfill(_ id: String, _ result: [String: Any]?) {
+        pendingLock.lock()
+        defer { pendingLock.unlock() }
+        guard let entry = pending[id] else { return }
+        pending[id] = (entry.0, result ?? [:])
+        entry.0.signal()
+    }
+
+    /// Asks the client's user (MCP elicitation); true only when they accept.
+    static func askUser(_ message: String) -> Bool {
+        guard clientCanElicit else { return false }
+        let done = DispatchSemaphore(value: 0)
+        pendingLock.lock()
+        nextRequestID += 1
+        let id = "vitrine-\(nextRequestID)"
+        pending[id] = (done, nil)
+        pendingLock.unlock()
+        send(["jsonrpc": "2.0", "id": id, "method": "elicitation/create",
+              "params": ["message": message, "requestedSchema": ["type": "object", "properties": [String: Any]()]]])
+        let answered = done.wait(timeout: .now() + elicitationTimeout) == .success
+        pendingLock.lock()
+        let result = pending.removeValue(forKey: id)?.1
+        pendingLock.unlock()
+        return answered && result?["action"] as? String == "accept"
+    }
+
+    /// Throws unless `path` is outside the protected locations, listed with `vitrinectl mcp allow`,
+    /// or approved by the user just now.
+    static func checkPath(_ path: String, _ use: String) throws {
+        let policy = MCPPathPolicy()
+        guard let root = policy.protectedRoot(for: path) else { return }
+        let resolved = MCPPathPolicy.resolve(path)
+        if askUser("An AI agent wants to \(use) \(resolved), which is in a protected location (\(root)). Allow this once?") {
+            return
+        }
+        throw VitrineError.invalidConfig("""
+            \(resolved) is in a protected location (\(root)): Vitrine's VM library, credentials, keychains \
+            and places that run code at login are off limits to the MCP file tools. Ask the user whether \
+            this is intended; they can allow it with `vitrinectl mcp allow '\(resolved)'`\
+            \(clientCanElicit ? " or approve the request in their MCP client" : ""). Do not look for another way in.
+            """)
     }
 
     static let instructions = """
@@ -322,22 +380,24 @@ enum MCPServer {
             let out = try blocking { try await AgentInstaller.run(in: b, command: command) }
             return [text(out.isEmpty ? "(no output)" : out)]
         },
-        Tool(name: "push_file", title: "Copy into guest", description: "Copies a file or folder from the Mac into the guest (scp). local_path may be any file the server can read.",
+        Tool(name: "push_file", title: "Copy into guest", description: "Copies a file or folder from the Mac into the guest (scp). Protected locations (Vitrine's VM library, credentials, keychains, login items) are refused unless the user allows them.",
              properties: ["name": vmName, "local_path": ["type": "string"], "guest_path": ["type": "string"]],
              required: ["name", "local_path", "guest_path"], destructive: true) { a in
             let b = try a.vm()
             let local = URL(fileURLWithPath: (try a.string("local_path") as NSString).expandingTildeInPath).standardizedFileURL
             let remote = try a.string("guest_path")
             guard FileManager.default.fileExists(atPath: local.path) else { throw VitrineError.invalidConfig("\(local.path) not found") }
+            try checkPath(local.path, "copy into the VM \(b.name)")
             try blocking { try await AgentInstaller.push(in: b, local: local, remote: remote) }
             return [text("copied \(local.path) to \(b.name):\(remote)")]
         },
-        Tool(name: "pull_file", title: "Copy from guest", description: "Copies a file or folder from the guest to the Mac (scp). local_path may be any path the server can write.",
+        Tool(name: "pull_file", title: "Copy from guest", description: "Copies a file or folder from the guest to the Mac (scp). Protected locations (Vitrine's VM library, credentials, keychains, login items, shell and agent settings) are refused unless the user allows them.",
              properties: ["name": vmName, "guest_path": ["type": "string"], "local_path": ["type": "string"]],
              required: ["name", "guest_path", "local_path"], destructive: true) { a in
             let b = try a.vm()
             let local = URL(fileURLWithPath: (try a.string("local_path") as NSString).expandingTildeInPath).standardizedFileURL
             let remote = try a.string("guest_path")
+            try checkPath(local.path, "write a file from the VM \(b.name) to")
             try blocking { try await AgentInstaller.pull(in: b, remote: remote, local: local) }
             return [text("copied \(b.name):\(remote) to \(local.path)")]
         },
@@ -407,6 +467,8 @@ enum MCPServer {
         if a.values["start"] != nil { r.start = a.bool("start") }
         r.x64 = a.optionalString("arch") == "x64"
         r.image = a.optionalString("image").map { $0 == "latest" ? $0 : ($0 as NSString).expandingTildeInPath }
+        // The image is attached to the new VM, so the guest can read it.
+        if let image = r.image, image != "latest" { try checkPath(image, "attach to a new VM as its installer") }
         if a.values["cpus"] != nil { r.cpus = try a.int("cpus") }
         r.memory = a.optionalString("memory")
         r.disk = a.optionalString("disk")

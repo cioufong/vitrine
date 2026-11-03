@@ -44,8 +44,8 @@ claude mcp add vitrine -- "$PWD/.build/release/vitrinectl" mcp  # または任�
 あとは、たとえば次のように依頼します: *「win-test という名前の Windows 11 VM を作成し、セットアップが終わるまで待ってから
 7-Zip をインストールし、それを開いた状態のスクリーンショットを撮ってください。」* エージェントは `create_vm` を使い、
 `create_status` をポーリングし、`exec`、`screenshot`、`click`、`type_text` でゲストを操作します。ゲストアカウントの
-パスワードを返すツールはありません（パスワードは VM バンドル内に保持されますが、`push_file` は他のファイルと同様に
-それを読み取れます。[docs/mcp.md](docs/mcp.md#security) のセキュリティの項を参照）。
+パスワードを返すツールはなく、ファイルツールは VM バンドルなどの保護された場所を許可なしには扱いません
+（[docs/mcp.md](docs/mcp.md#security) のセキュリティの項を参照）。
 
 ## 主な機能
 
