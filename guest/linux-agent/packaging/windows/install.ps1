@@ -5,10 +5,10 @@
 
 .DESCRIPTION
   Copies vitrine-agent.exe to "C:\Program Files\Vitrine", opens TCP 20819 in
-  the firewall for it (the host reaches it through QEMU user-net hostfwd),
-  registers a logon scheduled task so the agent runs in each user's
-  interactive session (it must: capture, input and clipboard are per
-  session), and starts it now.
+  the firewall for it (used only when the agent is started with --tcp; by
+  default it talks over the virtio-serial port), registers a logon scheduled
+  task so the agent runs in each user's interactive session (it must: capture,
+  input and clipboard are per session), and starts it now.
 
 .PARAMETER Exe
   Path to the agent build matching the guest CPU (vitrine-agent-windows-arm64.exe

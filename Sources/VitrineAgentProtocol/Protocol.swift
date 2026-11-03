@@ -141,8 +141,20 @@ public struct WindowInfo: Codable, Equatable, Sendable, Identifiable {
 
 /// Windows ordered front-to-back.
 public struct WindowList: Codable, Equatable, Sendable {
+    /// More windows than any desktop shows at once; the host creates an NSWindow per entry.
+    public static let maxWindows = 512
+    /// Longest title, app name or bundle identifier kept; the rest is cut (they become window titles).
+    public static let maxStringLength = 1024
     public var windows: [WindowInfo]
     public init(windows: [WindowInfo]) { self.windows = windows }
+
+    /// Whether the list is within the limits above (checked before the host acts on it).
+    public var isSane: Bool {
+        windows.count <= Self.maxWindows && windows.allSatisfy {
+            $0.title.utf8.count <= Self.maxStringLength && $0.appName.utf8.count <= Self.maxStringLength
+                && ($0.bundleID?.utf8.count ?? 0) <= Self.maxStringLength
+        }
+    }
 }
 
 /// Dirty rectangle of the guest display framebuffer. Pixels are BGRA8 premultiplied.
@@ -635,7 +647,10 @@ public enum AgentCodec {
         var r = ByteReader(payload)
         switch type {
         case .hello: return .hello(try decoder.decode(Hello.self, from: payload))
-        case .windowList: return .windowList(try decoder.decode(WindowList.self, from: payload))
+        case .windowList:
+            let list = try decoder.decode(WindowList.self, from: payload)
+            guard list.isSane else { throw AgentProtocolError.malformed("window list") }
+            return .windowList(list)
         case .displayInfo: return .displayInfo(try decoder.decode(DisplayInfo.self, from: payload))
         case .windowAction: return .windowAction(try decoder.decode(WindowAction.self, from: payload))
         case .setCoherence: return .setCoherence(try decoder.decode(CoherenceRequest.self, from: payload))

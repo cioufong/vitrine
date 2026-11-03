@@ -87,6 +87,10 @@ public final class FrameSocket: @unchecked Sendable {
     public func write(_ frame: UnsafeRawBufferPointer) -> Bool {
         guard frame.count > 0, frame.count <= Self.maxFrame, let base = frame.baseAddress else { return true }
         writeLock.lock(); defer { writeLock.unlock() }
+        // `close` releases the descriptor only after taking `writeLock`, so under it the descriptor is
+        // ours as long as `closed` is still false; after that the number may belong to another file.
+        stateLock.lock(); let isClosed = closed; stateLock.unlock()
+        if isClosed { return false }
         if framing == .datagram {
             while true {
                 let n = send(fd, base, frame.count, 0)
@@ -133,6 +137,11 @@ public final class FrameSocket: @unchecked Sendable {
         closed = true
         let source = self.source
         stateLock.unlock()
+        // A writer blocked on a full peer buffer returns with an error once the socket is shut down;
+        // waiting for `writeLock` after that guarantees no write is in flight when the descriptor is
+        // released (and its number possibly handed to the next `open`/`accept`).
+        shutdown(fd, SHUT_RDWR)
+        writeLock.lock(); writeLock.unlock()
         if let source {
             source.cancel()  // its cancel handler frees the buffer and closes the descriptor
         } else {

@@ -27,7 +27,7 @@ Vitrine 通过 Apple 的 Virtualization.framework 以原生速度运行虚拟机
 claude mcp add vitrine -- "$PWD/.build/release/vitrinectl" mcp  # 或任意 MCP 客户端，参见 docs/mcp.md
 ```
 
-然后可以这样提问，例如：*“创建一台名为 win-test 的 Windows 11 虚拟机，等它设置完成后在里面安装 7-Zip，并截取 7-Zip 打开时的屏幕截图。”* 智能体会使用 `create_vm`，轮询 `create_status`，并通过 `exec`、`screenshot`、`click` 和 `type_text` 操作客户机；客户机账户的密码保存在虚拟机包内，永远不会向智能体显示。
+然后可以这样提问，例如：*“创建一台名为 win-test 的 Windows 11 虚拟机，等它设置完成后在里面安装 7-Zip，并截取 7-Zip 打开时的屏幕截图。”* 智能体会使用 `create_vm`，轮询 `create_status`，并通过 `exec`、`screenshot`、`click` 和 `type_text` 操作客户机；没有任何工具会返回客户机账户的密码（它保存在虚拟机包内，但 `push_file` 像读取你的其他文件一样能读到它：见 [docs/mcp.md](docs/mcp.md#security) 的安全说明）。
 
 ## 亮点
 

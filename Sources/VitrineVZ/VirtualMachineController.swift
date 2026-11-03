@@ -98,6 +98,12 @@ public final class VirtualMachineController: NSObject, ObservableObject {
 
     // MARK: Lifecycle
 
+    /// `NetworkLink.open` off the main actor: joining a network waits for its owner (`vitrinectl
+    /// netd`) and for vmnet, up to 15 s each, which would freeze the UI if done here.
+    private static func openNetworkLink(bundle: VMBundle, config: VMConfig, qemu: Bool) async throws -> NetworkLink? {
+        try await Task.detached { try NetworkLink.open(bundle: bundle, config: config, qemu: qemu) }.value
+    }
+
     public func start(recovery: Bool = false) async throws {
         guard state == .stopped || state == .suspended || state == .error else { return }
         lastError = nil
@@ -129,7 +135,7 @@ public final class VirtualMachineController: NSObject, ObservableObject {
                     self.didStop(error: err)
                 }
                 qemu = machine
-                networkLink = try NetworkLink.open(bundle: bundle, config: config, qemu: true)
+                networkLink = try await Self.openNetworkLink(bundle: bundle, config: config, qemu: true)
                 machine.netdev = networkLink?.qemuNetdev
                 if let link = networkLink { log.write("network: \(link.summary)") }
                 try await machine.start()
@@ -148,7 +154,7 @@ public final class VirtualMachineController: NSObject, ObservableObject {
         do {
             let restoring = hasSavedState && !recovery
             let withUSB = !restoring || FileManager.default.fileExists(atPath: bundle.savedStateUSBMarkerURL.path)
-            networkLink = try NetworkLink.open(bundle: bundle, config: config, qemu: false)
+            networkLink = try await Self.openNetworkLink(bundle: bundle, config: config, qemu: false)
             if let link = networkLink { log.write("network: \(link.summary)") }
             let vzConfig = try ConfigurationBuilder.build(bundle: bundle, config: config, usbController: withUSB,
                                                           networkAttachment: networkLink?.vzAttachment)

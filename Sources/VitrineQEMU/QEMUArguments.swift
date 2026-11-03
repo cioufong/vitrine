@@ -15,6 +15,8 @@ public struct QEMUSockets: Sendable, Equatable {
     public var agentPortFile: URL
     /// The guest's first serial port (`vitrinectl console`); also logged to the bundle's console.log.
     public var serial: URL
+    /// "<pid> <start time>" of the running QEMU, so a later start can find one orphaned by a crash.
+    public var pidFile: URL
 
     public init(directory: URL) {
         qmp = directory.appendingPathComponent("qmp.sock")
@@ -25,6 +27,7 @@ public struct QEMUSockets: Sendable, Equatable {
         sshPortFile = directory.appendingPathComponent("ssh.port")
         agentPortFile = directory.appendingPathComponent("agent.port")
         serial = directory.appendingPathComponent("serial.sock")
+        pidFile = directory.appendingPathComponent("qemu.pid")
     }
 }
 

@@ -42,8 +42,8 @@ claude mcp add vitrine -- "$PWD/.build/release/vitrinectl" mcp  # 或任何 MCP 
 
 接著你可以這樣要求，例如：*「建立一台叫 win-test 的 Windows 11 虛擬機器，等它設定完成，
 在裡面安裝 7-Zip，並把它開啟時的畫面截圖下來。」* agent 會使用 `create_vm`、輪詢 `create_status`，
-再透過 `exec`、`screenshot`、`click` 和 `type_text` 操作客體系統；客體系統帳號的密碼
-一直存放在虛擬機器套件中，從不會顯示給 agent。
+再透過 `exec`、`screenshot`、`click` 和 `type_text` 操作客體系統；沒有任何工具會回傳客體系統帳號的密碼
+（它存放在虛擬機器套件中，但 `push_file` 和你的其他檔案一樣讀得到它：見 [docs/mcp.md](docs/mcp.md#security) 的安全性說明）。
 
 ## 重點功能
 

@@ -66,7 +66,11 @@ public final class VmnetPort: @unchecked Sendable {
             sem.signal()
         }
         guard let iface else { throw VmnetError(what: what, status: .VMNET_FAILURE) }
-        guard sem.wait(timeout: .now() + 15) == .success else { throw VmnetError(what: what, status: nil) }
+        guard sem.wait(timeout: .now() + 15) == .success else {
+            // Don't leak the interface (a scarce resource in the bridge daemon) when vmnet stays silent.
+            _ = vmnet_stop_interface(iface, queue) { _ in }
+            throw VmnetError(what: what, status: nil)
+        }
         guard status == .VMNET_SUCCESS else {
             _ = vmnet_stop_interface(iface, queue) { _ in }
             throw VmnetError(what: what, status: status)

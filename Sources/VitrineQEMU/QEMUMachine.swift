@@ -26,6 +26,11 @@ public final class QEMUMachine: @unchecked Sendable {
     /// Why `samba` is nil for a Windows guest, for the VM log.
     public private(set) var sambaUnavailableReason: String?
     private let io = DispatchQueue(label: "vitrine.qemu.control")
+    /// `onExit` is only delivered once `start` has returned; an exit before that makes `start` throw
+    /// instead, so the caller sees one failure rather than an exit callback and a thrown error.
+    private let startLock = NSLock()
+    private var startCompleted = false
+    private var pendingExit: QEMUExit?
     /// Set before `start` to put the VM on a vmnet or bridged network instead of user networking.
     public var netdev: String?
     private var userNetworking: Bool { config.network.isConnected && netdev == nil }
@@ -58,6 +63,9 @@ public final class QEMUMachine: @unchecked Sendable {
     private func startChildren() async throws {
         let fm = FileManager.default
         try fm.createDirectory(at: bundle.socketDirectory, withIntermediateDirectories: true)
+        // A QEMU from a Vitrine process that died keeps the disk open (and locked) and would lose
+        // its sockets below; it can only be stopped, before the new one takes its place.
+        let orphanNote = await terminateOrphan()
         // Port files too: a stale one (from a run with a different network setup) would point
         // other processes at whatever now listens on that loopback port.
         for s in [sockets.qmp, sockets.qmpTools, sockets.vnc, sockets.agent, sockets.tpm, sockets.sshPortFile, sockets.agentPortFile, sockets.serial] {
@@ -92,6 +100,7 @@ public final class QEMUMachine: @unchecked Sendable {
         let log = try FileHandle(forWritingTo: bundle.qemuLogURL)
         log.seekToEndOfFile()
         let logged = args.map { $0.hasPrefix("type=11,value=vitrine.token=") ? "type=11,value=vitrine.token=<redacted>" : $0 }
+        if let orphanNote { log.write(Data("\n=== \(Date()) \(orphanNote)\n".utf8)) }
         log.write(Data("\n=== \(Date()) \(env.system(config.effectiveArchitecture).path) \(logged.joined(separator: " "))\n".utf8))
         let runStart = log.offsetInFile
 
@@ -109,14 +118,21 @@ public final class QEMUMachine: @unchecked Sendable {
             let exit = QEMUExit(status: proc.terminationStatus, output: output,
                                 uncaughtSignal: proc.terminationReason == .uncaughtSignal)
             DispatchQueue.main.async {
-                self?.swtpm?.terminate()
-                self?.rfb?.close()
-                self?.samba?.remove()
-                self?.onExit?(exit)
+                guard let self else { return }
+                self.swtpm?.terminate()
+                self.rfb?.close()
+                self.samba?.remove()
+                try? FileManager.default.removeItem(at: self.sockets.pidFile)
+                self.startLock.lock()
+                let started = self.startCompleted
+                if !started { self.pendingExit = exit }
+                self.startLock.unlock()
+                if started { self.onExit?(exit) }
             }
         }
         try p.run()
         qemu = p
+        Self.recordPID(of: p, in: sockets.pidFile)
 
         let qmpPath = sockets.qmp.path, vncPath = sockets.vnc.path
         let (q, r): (QMPClient, RFBClient)
@@ -156,6 +172,66 @@ public final class QEMUMachine: @unchecked Sendable {
             // The NIC's restored registers may say "link up": enforce the unplug again.
             if offline { await unplugNetworkForSetup(log) }
         }
+        startLock.lock()
+        startCompleted = true
+        let exit = pendingExit
+        startLock.unlock()
+        if let exit {
+            throw VitrineError.backend("QEMU exited with status \(exit.status) while starting\n\(exit.tail ?? "")")
+        }
+    }
+
+    // MARK: Orphaned processes
+
+    /// Writes "<pid> <process start time>" so that a stale file (PID reused by another process after
+    /// a reboot, say) is never mistaken for the QEMU it named.
+    private static func recordPID(of p: Process, in file: URL) {
+        let pid = p.processIdentifier
+        guard let start = processStartTime(pid) else { return }
+        try? "\(pid) \(start)".write(to: file, atomically: true, encoding: .utf8)
+    }
+
+    private static func processStartTime(_ pid: pid_t) -> UInt64? {
+        var info = proc_bsdinfo()
+        let size = Int32(MemoryLayout<proc_bsdinfo>.size)
+        guard proc_pidinfo(pid, PROC_PIDTBSDINFO, 0, &info, size) == size else { return nil }
+        return info.pbi_start_tvsec
+    }
+
+    /// Whether `pid` is the qemu-system process the pid file described.
+    private static func isRecordedQEMU(pid: pid_t, startedAt start: UInt64) -> Bool {
+        guard pid > 0, kill(pid, 0) == 0 || errno == EPERM, processStartTime(pid) == start else { return false }
+        var buf = [CChar](repeating: 0, count: 4096)
+        guard proc_pidpath(pid, &buf, UInt32(buf.count)) > 0 else { return false }
+        return URL(fileURLWithPath: String(cString: buf)).lastPathComponent.hasPrefix("qemu-system-")
+    }
+
+    /// Terminates a QEMU left behind by an earlier Vitrine process that died without stopping it
+    /// (crash, `kill -9`, forced logout). Nothing can reach it any more once this run replaces its
+    /// sockets, and it holds the disk image's lock, so the guest gets the power cut it would get
+    /// anyway, now rather than at an arbitrary later time. Returns a line for the VM log.
+    private func terminateOrphan() async -> String? {
+        let file = sockets.pidFile
+        guard let text = try? String(contentsOf: file, encoding: .utf8) else { return nil }
+        try? FileManager.default.removeItem(at: file)
+        let parts = text.split(separator: " ")
+        guard parts.count == 2, let pid = pid_t(parts[0]), let start = UInt64(parts[1]),
+              Self.isRecordedQEMU(pid: pid, startedAt: start) else { return nil }
+        kill(pid, SIGTERM) // swtpm runs with --terminate and follows QEMU
+        let deadline = Date().addingTimeInterval(5)
+        while Self.isRecordedQEMU(pid: pid, startedAt: start), Date() < deadline {
+            try? await Task.sleep(nanoseconds: 100_000_000)
+        }
+        var how = "terminated"
+        if Self.isRecordedQEMU(pid: pid, startedAt: start) {
+            kill(pid, SIGKILL)
+            how = "killed"
+            let deadline = Date().addingTimeInterval(2)
+            while Self.isRecordedQEMU(pid: pid, startedAt: start), Date() < deadline {
+                try? await Task.sleep(nanoseconds: 100_000_000)
+            }
+        }
+        return "\(how) QEMU (pid \(pid)) left running by an earlier Vitrine process"
     }
 
     /// The SMB shares for a Windows guest: its shared folders plus the drag-and-drop folder.

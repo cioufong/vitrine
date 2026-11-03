@@ -21,6 +21,11 @@ final class PortForwarder: @unchecked Sendable {
 
     /// UDP flows end after this long without a datagram either way.
     static let udpIdleTimeout: TimeInterval = 120
+    /// Flows (TCP connections and UDP peers) relayed at once, over all of a VM's forwards. Each one
+    /// holds a connection to the guest; a port sweep against a forward bound to 0.0.0.0 would
+    /// otherwise open one per source port and keep it for `udpIdleTimeout`.
+    static let maxFlows = 4096
+    private var flowLimitReported = false
 
     func start(_ forwards: [VMConfig.PortForward]) {
         queue.sync {
@@ -66,6 +71,15 @@ final class PortForwarder: @unchecked Sendable {
     }
 
     private func relay(_ client: NWConnection, to f: VMConfig.PortForward) {
+        guard flows.count < Self.maxFlows else {
+            if !flowLimitReported {
+                flowLimitReported = true
+                log("port forward \(f.spec): \(Self.maxFlows) connections open, refusing new ones until some close")
+            }
+            client.cancel()
+            return
+        }
+        if flowLimitReported, flows.count < Self.maxFlows / 2 { flowLimitReported = false }
         guard let ip = guestAddress(), let port = NWEndpoint.Port(rawValue: UInt16(f.guestPort)) else {
             log("port forward \(f.spec): the guest has no IP address yet")
             client.cancel()
