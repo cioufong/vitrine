@@ -220,14 +220,16 @@ final class CoherenceWindow: NSWindow {
         title = info.title.isEmpty ? info.appName : "\(info.appName) — \(info.title)"
     }
 
-    /// The guest says what kind each window is, so a raised level is limited to what menus and
-    /// panels plausibly need: a "menu" covering most of the screen would otherwise sit above every
-    /// app on the Mac (a fake password prompt, say).
+    /// Only menus are raised; everything else is stacked as the guest stacks it. Panels (dialogs,
+    /// utility windows) used to float, but the guest's window manager can put another app's window
+    /// over them, and a floating copy then showed that window's pixels in a frame on top.
+    /// The guest says what kind each window is, so a raised level is limited to what menus
+    /// plausibly need: a "menu" covering most of the screen would otherwise sit above every app on
+    /// the Mac (a fake password prompt, say).
     static func level(for kind: WindowInfo.Kind, frame: CGRect, screen: CGRect?) -> NSWindow.Level {
         let raised: NSWindow.Level
         switch kind {
-        case .normal: return .normal
-        case .panel: raised = .floating
+        case .normal, .panel: return .normal
         case .menu, .menuBar: raised = .popUpMenu
         }
         guard let screen, screen.width > 0, screen.height > 0 else { return raised }
