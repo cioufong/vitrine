@@ -8,12 +8,16 @@ import VitrineAgentProtocol
 ///
 /// Supports Raw + CopyRect, DesktopSize, and QEMU's extended key event (raw scancodes, so keyboard
 /// layouts behave like real hardware). Runs its read loop on a background thread; frame callbacks
-/// are delivered on the main queue.
+/// are delivered on the main queue. When a session fails (a message it can't parse, a dropped
+/// socket) it reconnects to the same socket until `close()`, keeping the framebuffer and callbacks,
+/// so the display doesn't freeze on its last frame while the VM runs on.
 public final class RFBClient: @unchecked Sendable {
     public let framebuffer = GuestFramebuffer()
     public var onFrame: ((Rect) -> Void)?
     public var onResize: ((Int, Int) -> Void)?
     public var onClose: ((Error?) -> Void)?
+    /// A session failed and the client is reconnecting (main queue), for the VM's log.
+    public var onSessionError: ((Error) -> Void)?
 
     /// Guards state shared between the reader thread and the main thread: geometry, the surface
     /// reference (replaced on DesktopSize), extended-key support and the open/closed flags.
@@ -33,14 +37,19 @@ public final class RFBClient: @unchecked Sendable {
     /// The surface to display (it is reallocated when the guest resolution changes).
     public var currentSurface: IOSurface? { state.lock(); defer { state.unlock() }; return framebuffer.surface }
 
-    private let fd: Int32
+    /// The current session's socket. Replaced by the reader thread on reconnect, under `writeLock`.
+    private var fd: Int32
+    private let socketPath: String
     private let writeLock = NSLock()
     private var reader = BufferedReader(fd: -1)
+    /// Wait between reconnection attempts, doubled up to the maximum while sessions keep failing.
+    static let reconnectDelay: TimeInterval = 0.2, maxReconnectDelay: TimeInterval = 5
 
     public init(socketPath: String, timeout: TimeInterval = 15) throws {
+        self.socketPath = socketPath
         fd = try UnixSocket.connect(path: socketPath, timeout: timeout)
         reader = BufferedReader(fd: fd)
-        try handshake()
+        do { try handshake() } catch { Darwin.close(fd); fdReleased = true; throw error }
     }
 
     deinit { close() }
@@ -53,7 +62,7 @@ public final class RFBClient: @unchecked Sendable {
         _closed = true
         state.unlock()
         guard !was else { return }
-        shutdown(fd, SHUT_RDWR)
+        writeLock.lock(); shutdown(fd, SHUT_RDWR); writeLock.unlock()
         releaseFDIfIdle()
     }
 
@@ -117,24 +126,61 @@ public final class RFBClient: @unchecked Sendable {
     }
 
     private func loop() {
-        do {
-            try requestUpdate(incremental: false)
-            while !closed {
-                let type = try reader.u8()
-                switch type {
-                case 0: try handleFramebufferUpdate(); try requestUpdate(incremental: true)
-                case 1:                                         // colour map (unused for true colour)
-                    _ = try reader.read(1); _ = try reader.u16(); let n = Int(try reader.u16()); _ = try reader.read(n * 6)
-                case 2: break                                   // bell
-                case 3: _ = try reader.read(3); let n = Int(try reader.u32()); _ = try reader.read(n) // cut text
-                default: throw VitrineError.protocolError("unknown VNC message \(type)")
+        var delay = Self.reconnectDelay
+        while !closed {
+            do {
+                try session()
+            } catch {
+                guard !closed else { break }
+                if sessionPainted { delay = Self.reconnectDelay }  // that session worked: retry quickly
+                DispatchQueue.main.async { self.onSessionError?(error) }
+                // Reconnect, waiting longer while sessions keep failing (a socket that is gone,
+                // a display the framebuffer refuses).
+                while !closed {
+                    Thread.sleep(forTimeInterval: delay)
+                    delay = min(delay * 2, Self.maxReconnectDelay)
+                    if reconnect() { break }
                 }
             }
-        } catch {
-            if !closed { DispatchQueue.main.async { self.onClose?(error) } }
-            return
         }
         DispatchQueue.main.async { self.onClose?(nil) }
+    }
+
+    /// Whether the current session applied an update (reader thread only).
+    private var sessionPainted = false
+
+    /// One session's update loop; returns only by throwing.
+    private func session() throws {
+        sessionPainted = false
+        try requestUpdate(incremental: false)
+        while !closed {
+            let type = try reader.u8()
+            switch type {
+            case 0: try handleFramebufferUpdate(); sessionPainted = true; try requestUpdate(incremental: true)
+            case 1:                                         // colour map (unused for true colour)
+                _ = try reader.read(1); _ = try reader.u16(); let n = Int(try reader.u16()); _ = try reader.read(n * 6)
+            case 2: break                                   // bell
+            case 3: _ = try reader.read(3); let n = Int(try reader.u32()); _ = try reader.read(n) // cut text
+            default: throw VitrineError.protocolError("unknown VNC message \(type)")
+            }
+        }
+        throw VitrineError.io("VNC connection closed")
+    }
+
+    /// Opens a new session on the reader thread; false when the server can't be reached yet.
+    private func reconnect() -> Bool {
+        guard let newFD = try? UnixSocket.connect(path: socketPath, timeout: 3) else { return false }
+        writeLock.lock()
+        let oldFD = fd
+        fd = newFD
+        writeLock.unlock()
+        Darwin.close(oldFD)
+        reader = BufferedReader(fd: newFD)
+        state.lock(); let wasClosed = _closed; state.unlock()
+        // close() during the swap shut down the old socket; do the same to this one.
+        if wasClosed { shutdown(newFD, SHUT_RDWR); return true }
+        do { try handshake() } catch { shutdown(newFD, SHUT_RDWR); return false }
+        return true
     }
 
     private func requestUpdate(incremental: Bool) throws {
