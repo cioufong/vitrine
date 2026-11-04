@@ -154,6 +154,9 @@ public final class QEMUMachine: @unchecked Sendable {
         }
         qmp = q
         rfb = r
+        r.onSessionError = { [log] error in
+            try? log.write(contentsOf: Data("Vitrine: display connection failed (\(error.localizedDescription)), reconnecting\n".utf8))
+        }
         r.start()
         let offline = WindowsSetup(config).runsOffline
         if offline {
