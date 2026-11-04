@@ -8,6 +8,18 @@ lowers the display and latency numbers below.
 Legend: **PASS** works as documented · **N/A** not available for this guest (see note) ·
 **known** works with a documented limitation · **—** not tested in this round.
 
+## 0.2.0 round (2026-11-04)
+
+Host: MacBook Pro M1 Max, macOS 27.2. Guests from the 2026-10-21 installs.
+
+| Check | Commit | Result |
+|---|---|---|
+| `swift test` | main + #9, #11, #12, #15, #16 merged locally (0ad068b) | 306 tests, 3 skipped, 0 failures |
+| `go test` (Linux agent, Go 1.26) | same | 8 packages ok |
+| Seamless mode, Debian 13 Xfce, 16 windows: stacking (`CGWindowListCopyWindowInfo` layers) | #9 (d4c8c0a) | PASS: every window, dialogs included, at the normal level; dialogs behind a guest window stay hidden; another Mac app's window covers guest windows; menus and tooltips above their app |
+| Seamless mode: 600-character window title, display resized every 120 ms, 14 apps' icons with an empty icon cache | #16 (d4c8c0a) | PASS: title cut to 1023 bytes, agent stays connected; one repaint per resize burst, picture intact; 12 icons served, none dropped (2 are SVG and the guest lacks `rsvg-convert`) |
+| Bridge helper, real admin install (release build, ad-hoc) | main + #11 (f39df8f) | PASS: installed copy root-owned and identical to the bundled one, daemon serving en0 and en7; Debian 13 on `bridged:en0` got a LAN DHCP address, reached the internet and answered ping from the Mac |
+
 ## Automated suites (2026-10-21)
 
 | Suite | Commit | Result |

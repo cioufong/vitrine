@@ -15,7 +15,7 @@ public final class AgentSession {
         case closed(String?)
     }
 
-    public static let hostAgentVersion = "0.1.0"
+    public static let hostAgentVersion = "0.2.0"
 
     public private(set) var state: State = .connecting { didSet { onStateChange?(state) } }
     public private(set) var windows: [WindowInfo] = []

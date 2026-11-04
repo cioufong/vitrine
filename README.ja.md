@@ -22,7 +22,7 @@ Apple のフレームワークで対応できない場合（Windows 11、x86_64 
 
 ![Windows 11 のメモ帳、エクスプローラー、電卓が Mac 上の独立したウインドウとして表示され、隣に Vitrine のコントロールセンターがある様子](docs/images/seamless-windows.png)
 
-> ステータス: v0.1、活発に開発中です。[現在動作するもの](#what-works-today)（日付入りのテスト結果は
+> ステータス: v0.2、活発に開発中です。[現在動作するもの](#what-works-today)（日付入りのテスト結果は
 > [docs/verification.md](docs/verification.md) にあります）と[ロードマップ](#roadmap)をご覧ください。
 
 ### ダウンロード
