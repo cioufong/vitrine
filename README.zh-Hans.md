@@ -14,7 +14,7 @@ Vitrine 通过 Apple 的 Virtualization.framework 以原生速度运行虚拟机
 
 ![Windows 11 的记事本、文件资源管理器和计算器以独立窗口显示在 Mac 上，旁边是 Vitrine 的控制中心](docs/images/seamless-windows.png)
 
-> 状态：v0.1，正在积极开发中。请参阅[目前可用的功能](#what-works-today)（附带日期的测试结果见 [docs/verification.md](docs/verification.md)）以及[路线图](#roadmap)。
+> 状态：v0.2，正在积极开发中。请参阅[目前可用的功能](#what-works-today)（附带日期的测试结果见 [docs/verification.md](docs/verification.md)）以及[路线图](#roadmap)。
 
 ### 下载
 

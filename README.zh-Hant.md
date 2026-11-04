@@ -21,7 +21,7 @@ Apple 框架做不到的部分（Windows 11、x86_64 模擬）則交給 QEMU。�
 
 ![Windows 11 的記事本、檔案總管和小算盤以獨立視窗顯示在 Mac 上，旁邊是 Vitrine 的控制中心](docs/images/seamless-windows.png)
 
-> 狀態：v0.1，積極開發中。請參閱[目前可用的功能](#what-works-today)（附日期的測試結果
+> 狀態：v0.2，積極開發中。請參閱[目前可用的功能](#what-works-today)（附日期的測試結果
 > 見 [docs/verification.md](docs/verification.md)）以及[開發藍圖](#roadmap)。
 
 ### 下載

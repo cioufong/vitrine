@@ -21,7 +21,7 @@ QEMU when Apple's framework can't (Windows 11, x86_64 emulation). Apache-2.0 lic
 
 ![Windows 11 Notepad, File Explorer and Calculator as separate windows on a Mac, next to Vitrine's Control Center](docs/images/seamless-windows.png)
 
-> Status: v0.1, under active development. See [what works](#what-works-today) (with dated test
+> Status: v0.2, under active development. See [what works](#what-works-today) (with dated test
 > results in [docs/verification.md](docs/verification.md)) and the [roadmap](#roadmap).
 
 ### Download
