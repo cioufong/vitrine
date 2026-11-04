@@ -3,7 +3,7 @@ import VitrineAgentProtocol
 
 /// Serves one host connection at a time. Main-thread confined.
 final class GuestAgent {
-    static let version = "0.2.0"
+    static let version = "0.2.1"
 
     private let listener: Listener
     private var channel: AgentChannel?
