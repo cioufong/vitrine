@@ -318,12 +318,27 @@ public final class VirtualMachineController: NSObject, ObservableObject {
 
     /// Asks the guest to shut down; force-stops after `timeout`.
     public func stop(timeout: TimeInterval = 30) async {
+        // Only the run this request was for: another may have started (on either backend) meanwhile.
+        if let b = await requestShutdownAndWait(timeout: timeout), backend === b { await forceStop() }
+    }
+
+    /// Asks the guest to shut down and waits up to `timeout`. Unlike `stop`, never forces it off:
+    /// returns false if it's still running then (it may yet finish shutting down on its own).
+    public func shutDown(timeout: TimeInterval) async -> Bool {
+        guard let b = await requestShutdownAndWait(timeout: timeout), backend === b else { return true }
+        if b.hasStopped { await forceStop(); return true } // stopped, its stop not delivered yet: tidy up
+        if state == .stopping { state = .running }
+        return false
+    }
+
+    /// Sends the shutdown request and waits; returns the backend it was sent to (nil: not running).
+    private func requestShutdownAndWait(timeout: TimeInterval) async -> MachineBackend? {
         // A paused guest can't shut down (its vCPUs don't run): resume it first, or the shutdown
         // request just runs out the clock and the VM is killed without flushing anything.
         if state == .paused {
             do { try await resume() } catch { log.write("could not resume before shutting down: \(error.localizedDescription)") }
         }
-        guard let b = backend, state == .running || state == .paused else { return }
+        guard let b = backend, state == .running || state == .paused else { return nil }
         state = .stopping
         if await b.requestStop() {
             let deadline = Date().addingTimeInterval(timeout)
@@ -331,8 +346,7 @@ public final class VirtualMachineController: NSObject, ObservableObject {
                 try? await Task.sleep(nanoseconds: 250_000_000)
             }
         }
-        // Only the run this request was for: another may have started (on either backend) meanwhile.
-        if backend === b { await forceStop() }
+        return b
     }
 
     public func forceStop() async {
@@ -435,6 +449,7 @@ public final class VirtualMachineController: NSObject, ObservableObject {
             state = vm.state == .running ? .running : .error
             if state == .running { await replugUSB(unplugged) }
             lastError = "Suspend failed: \(error.localizedDescription)"
+            log.write("suspend failed: \(error.localizedDescription)")
             throw error
         }
     }
@@ -1071,4 +1086,12 @@ extension VirtualMachineController {
             lastError = "Couldn't discard this disposable run's changes yet; they will be discarded before the next start. \(error.localizedDescription)"
         }
     }
+}
+
+// MARK: Quitting
+
+extension VirtualMachineController: QuitTarget {
+    public var name: String { bundle.name }
+    public var shutsDownOnQuit: Bool { suspendBlocker != nil || config.features.disposable }
+    public var isDisposable: Bool { config.features.disposable }
 }

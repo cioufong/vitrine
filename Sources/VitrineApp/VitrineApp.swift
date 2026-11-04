@@ -265,10 +265,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             alert.addButton(withTitle: String(localized: "Shut Down and Quit"))
             if alert.runModal() == .alertFirstButtonReturn { return .terminateCancel }
         }
-        removeDockIcons()
         Task { @MainActor in
-            await model.suspendAllForQuit()
-            NSApp.reply(toApplicationShouldTerminate: true)
+            let quit = await model.prepareVMsForQuit()
+            if quit { removeDockIcons() }
+            NSApp.reply(toApplicationShouldTerminate: quit)
         }
         return .terminateLater
     }
