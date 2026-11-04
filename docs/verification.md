@@ -8,6 +8,18 @@ lowers the display and latency numbers below.
 Legend: **PASS** works as documented · **N/A** not available for this guest (see note) ·
 **known** works with a documented limitation · **—** not tested in this round.
 
+## 0.2.1 round (2026-11-04)
+
+Host: MacBook Pro M1 Max, macOS 27.2.
+
+| Check | Commit | Result |
+|---|---|---|
+| `swift test` | 67b2a17 | 316 tests, 3 skipped, 0 failures |
+| `go test` (Linux agent, Go 1.26) | 67b2a17 | 8 packages ok |
+| QEMU display reconnect: aarch64 guest in `vitrinectl run --gui`, the client's VNC socket shut down from lldb | #21 (7f0edf1) | PASS: failure noted in `qemu.log`, new connection to `vnc.sock`, text typed afterwards shown in the window |
+| Quit with a failing suspend (folder put at `state.vzvmsave`), Debian 13 VM in the app | #22 (67b2a17) | PASS: "Couldn't suspend" alert with the reason; Keep Vitrine Open leaves the VM running; Shut Down and Quit shuts the guest down cleanly (~70 s), then quits |
+| Oversized BLE advertisement, console log on a full disk | #19, #20 | Unit tests only (oversized fields, `RLIMIT_FSIZE`-failed log writes) |
+
 ## 0.2.0 round (2026-11-04)
 
 Host: MacBook Pro M1 Max, macOS 27.2. Guests from the 2026-10-21 installs.

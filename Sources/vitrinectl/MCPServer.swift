@@ -81,7 +81,7 @@ enum MCPServer {
             reply(id, result: [
                 "protocolVersion": supportedVersions.contains(asked) ? asked : supportedVersions[0],
                 "capabilities": ["tools": ["listChanged": false]],
-                "serverInfo": ["name": "vitrine", "title": "Vitrine", "version": "0.2.0"],
+                "serverInfo": ["name": "vitrine", "title": "Vitrine", "version": "0.2.1"],
                 "instructions": instructions,
             ])
         case "ping":
