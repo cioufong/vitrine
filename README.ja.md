@@ -102,7 +102,7 @@ macOS 27 を実行する M1 Max でエンドツーエンドに検証済みです
 - **検証**: Debian、Windows 11 Arm、macOS の新規インストールでどの機能を、どの日付・どのコミットでテストしたか、
   ディスプレイのレイテンシや既知の問題とあわせて記載しています — [docs/verification.md](docs/verification.md)。
 - **日常的な VM 機能**: 使い捨てモード（毎回同じディスクから起動）、独自の MAC アドレスと DHCP ホスト名を持つ APFS クローン、
-  NAT / ホストオンリー / 固定アドレス付きの名前付き VM 間ネットワーク / ブリッジ（一度インストールする小さな root ヘルパー経由）/
+  NAT / ホストオンリー / 固定アドレス付きの名前付き VM 間ネットワーク / ブリッジ（一度インストールする小さな root ヘルパー経由。root で実行する前にコード署名を検証）/
   ネットワークなし、両バックエンドでの TCP および UDP ポートフォワード（[docs/networking.md](docs/networking.md)）、
   共有フォルダ（VZ では virtiofs、QEMU の Linux では 9p）、シリアルコンソール（`vitrinectl console`、スクリプト化可能）、
   QEMU の GDB スタブ、SSH によるファイルの push/pull、qcow2/VMDK/VHDX/VDI ディスクおよび UTM VM のインポート、

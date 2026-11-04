@@ -100,7 +100,7 @@ claude mcp add vitrine -- "$PWD/.build/release/vitrinectl" mcp  # 或任何 MCP 
   在哪個日期、哪個 commit，以及顯示延遲和已知問題——[docs/verification.md](docs/verification.md)。
 - **日常虛擬機器功能**：拋棄式模式（每次執行都從同一份磁碟開始）、擁有各自 MAC 與 DHCP 主機名稱的
   APFS 複製、NAT／僅限主機／可指定固定位址的具名虛擬機器互連網路／
-  橋接（透過只需安裝一次的小型 root 輔助程式）／無網路，兩種後端都支援 TCP 與 UDP 連接埠轉送
+  橋接（透過只需安裝一次的小型 root 輔助程式，以 root 執行前會先驗證其程式碼簽章）／無網路，兩種後端都支援 TCP 與 UDP 連接埠轉送
   （[docs/networking.md](docs/networking.md)）、
   共享資料夾（VZ 用 virtiofs、QEMU Linux 用 9p）、序列主控台（`vitrinectl console`，可寫成腳本）、
   QEMU GDB stub、透過 SSH 推送／拉取檔案、匯入 qcow2/VMDK/VHDX/VDI 磁碟與 UTM 虛擬機器、
