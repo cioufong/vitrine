@@ -104,6 +104,28 @@
         }
       }
     },
+    "%@ didn't shut down": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@がシステム終了しませんでした"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 未能关机"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 未能關機"
+          }
+        }
+      }
+    },
     "%@ is shut down": {
       "localizations": {
         "ja": {
@@ -2355,6 +2377,28 @@
         }
       }
     },
+    "Couldn't suspend %@": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@をサスペンドできませんでした"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法挂起 %@"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法暫停 %@"
+          }
+        }
+      }
+    },
     "Create": {
       "localizations": {
         "ja": {
@@ -3176,6 +3220,28 @@
         }
       }
     },
+    "Force Off and Quit": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "強制終了して Vitrine を終了"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "强制关闭并退出"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "強制關閉並結束"
+          }
+        }
+      }
+    },
     "Force Stop": {
       "localizations": {
         "ja": {
@@ -3194,6 +3260,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "強制停止"
+          }
+        }
+      }
+    },
+    "Forcing it off is like pulling the power cord: anything not yet saved inside the VM is lost.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "強制終了は電源コードを抜くのと同じです。仮想マシン内でまだ保存されていない内容は失われます。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "强制关闭如同拔掉电源线：虚拟机内尚未保存的内容都会丢失。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "強制關閉就像拔掉電源線：虛擬機器內尚未儲存的內容都會遺失。"
           }
         }
       }
@@ -4272,6 +4360,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "保持執行"
+          }
+        }
+      }
+    },
+    "Keep Vitrine Open": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vitrine を開いたままにする"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保持 Vitrine 打开"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "讓 Vitrine 保持開啟"
           }
         }
       }
@@ -6974,6 +7084,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "要將「%@」關機嗎？"
+          }
+        }
+      }
+    },
+    "Shut it down before quitting (like choosing Shut Down inside the VM), or keep Vitrine open and try again.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "終了する前にシステム終了するか（仮想マシン内で「システム終了」を選ぶのと同じです）、Vitrine を開いたままにしてもう一度お試しください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "可以先将其关机再退出（与在虚拟机内选择“关机”相同），或保持 Vitrine 打开并重试。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "可以先將它關機再結束（如同在虛擬機器內選擇「關機」），或讓 Vitrine 保持開啟並再試一次。"
           }
         }
       }

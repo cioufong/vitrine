@@ -137,8 +137,10 @@ final class AppModel: ObservableObject {
         }
     }
 
-    /// On quit, suspend every running VM so nothing is powered off mid-write.
-    func suspendAllForQuit() async {
+    /// On quit, suspend every running VM so nothing is powered off mid-write. A VM that can't be
+    /// suspended, or doesn't shut down in time, is only shut down or forced off once the user
+    /// agreed (QuitSequence). Returns false when the user chose to keep Vitrine open.
+    func prepareVMsForQuit() async -> Bool {
         for c in activeControllers { captureThumbnail(c.bundle) }
         for key in coherenceActive { exitCoherence(VMBundle(url: URL(fileURLWithPath: key))) }
         // Let in-flight transitions (a suspend already saving, a VM still booting) settle first.
@@ -146,22 +148,37 @@ final class AppModel: ObservableObject {
         while liveControllers.contains(where: { $0.state != .running && $0.state != .paused }), Date() < settle {
             try? await Task.sleep(nanoseconds: 200_000_000)
         }
-        await withTaskGroup(of: Void.self) { group in
-            for c in activeControllers {
-                group.addTask { @MainActor in
-                    if c.suspendBlocker != nil || c.config.features.disposable {
-                        // A drive is attached (the user chose to shut down), or the VM is disposable
-                        // (nothing to keep): give the guest time to flush and power off; slow
-                        // (emulated) guests need minutes.
-                        await c.stop(timeout: 300)
-                        return
-                    }
-                    do { try await c.suspend() } catch { await c.stop(timeout: 60) }
-                }
-            }
+        let quit = await QuitSequence.run(activeControllers) { question in
+            NSApp.activate()
+            return Self.askWhileQuitting(question)
         }
-        // Never leave a backend running behind a quitting app.
-        for c in liveControllers { await c.forceStop() }
+        guard quit else { return false }
+        // Never leave a backend running behind a quitting app (a VM stuck starting or stopping).
+        for c in liveControllers {
+            c.note("still \(c.state) when Vitrine quit; forced off")
+            await c.forceStop()
+        }
+        return true
+    }
+
+    private static func askWhileQuitting(_ question: QuitQuestion) -> Bool {
+        let alert = NSAlert()
+        switch question {
+        case .suspendFailed(let failures):
+            let names = ListFormatter.localizedString(byJoining: failures.map(\.name))
+            alert.messageText = String(localized: "Couldn't suspend \(names)")
+            let reasons = failures.map { "\($0.name): \($0.reason)" }.joined(separator: "\n")
+            alert.informativeText = reasons + "\n\n" + String(localized: "Shut it down before quitting (like choosing Shut Down inside the VM), or keep Vitrine open and try again.")
+            alert.addButton(withTitle: String(localized: "Keep Vitrine Open"))
+            alert.addButton(withTitle: String(localized: "Shut Down and Quit"))
+        case .didNotShutDown(let names):
+            alert.messageText = String(localized: "\(ListFormatter.localizedString(byJoining: names)) didn't shut down")
+            alert.informativeText = String(localized: "Forcing it off is like pulling the power cord: anything not yet saved inside the VM is lost.")
+            alert.addButton(withTitle: String(localized: "Keep Vitrine Open"))
+            alert.addButton(withTitle: String(localized: "Force Off and Quit"))
+        }
+        alert.alertStyle = .warning
+        return alert.runModal() == .alertSecondButtonReturn
     }
 
     func refresh() {
