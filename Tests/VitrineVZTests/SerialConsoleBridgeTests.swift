@@ -72,4 +72,34 @@ final class SerialConsoleBridgeTests: XCTestCase {
         XCTAssertNil(weakBridge)
         XCTAssertThrowsError(try inputHandle.write(contentsOf: Data([0])))
     }
+
+    /// A full disk (here: the file size limit, which fails writes the same way) must not crash the
+    /// app through the console log, and the console itself keeps working.
+    func testLogWriteFailureKeepsTheConsoleRunning() throws {
+        let b = try makeBundle()
+        defer { SerialConsoleBridge.stop(bundle: b); try? FileManager.default.removeItem(at: b.url) }
+        let limit = 64 << 10
+        try Data(repeating: 0x2E, count: limit).write(to: b.consoleLogURL)
+        let bridge = try SerialConsoleBridge.start(bundle: b)
+        let client = try readyClient(b, bridge: bridge)
+        defer { Darwin.close(client) }
+
+        var saved = rlimit()
+        getrlimit(RLIMIT_FSIZE, &saved)
+        let oldHandler = signal(SIGXFSZ, SIG_IGN)
+        var small = saved
+        small.rlim_cur = rlim_t(limit)
+        setrlimit(RLIMIT_FSIZE, &small)
+        defer { setrlimit(RLIMIT_FSIZE, &saved); signal(SIGXFSZ, oldHandler) }
+
+        for text in ["first", "second"] {
+            try bridge.fromGuest.fileHandleForWriting.write(contentsOf: Data(text.utf8))
+            var p = pollfd(fd: client, events: Int16(POLLIN), revents: 0)
+            XCTAssertGreaterThan(poll(&p, 1, 2000), 0, "no console output after a failed log write")
+            var bytes = [UInt8](repeating: 0, count: 64)
+            let n = read(client, &bytes, bytes.count)
+            XCTAssertEqual(n > 0 ? String(decoding: bytes[0..<n], as: UTF8.self) : nil, text)
+        }
+        XCTAssertEqual(try FileManager.default.attributesOfItem(atPath: b.consoleLogURL.path)[.size] as? Int, limit)
+    }
 }

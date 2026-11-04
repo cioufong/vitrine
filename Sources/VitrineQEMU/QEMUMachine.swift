@@ -100,8 +100,9 @@ public final class QEMUMachine: @unchecked Sendable {
         let log = try FileHandle(forWritingTo: bundle.qemuLogURL)
         log.seekToEndOfFile()
         let logged = args.map { $0.hasPrefix("type=11,value=vitrine.token=") ? "type=11,value=vitrine.token=<redacted>" : $0 }
-        if let orphanNote { log.write(Data("\n=== \(Date()) \(orphanNote)\n".utf8)) }
-        log.write(Data("\n=== \(Date()) \(env.system(config.effectiveArchitecture).path) \(logged.joined(separator: " "))\n".utf8))
+        // write(contentsOf:) rather than write(_:), which raises an exception on a full disk.
+        if let orphanNote { try? log.write(contentsOf: Data("\n=== \(Date()) \(orphanNote)\n".utf8)) }
+        try? log.write(contentsOf: Data("\n=== \(Date()) \(env.system(config.effectiveArchitecture).path) \(logged.joined(separator: " "))\n".utf8))
         let runStart = log.offsetInFile
 
         let p = Process()
@@ -334,7 +335,7 @@ public final class QEMUMachine: @unchecked Sendable {
     /// Unplugs the virtual network cable (see start()).
     private func unplugNetworkForSetup(_ log: FileHandle) async {
         do { try await control { _ = try $0.execute("set_link", arguments: ["name": "net0", "up": false]) } }
-        catch { log.write(Data("Vitrine: could not unplug the network during setup: \(error)\n".utf8)) }
+        catch { try? log.write(contentsOf: Data("Vitrine: could not unplug the network during setup: \(error)\n".utf8)) }
     }
 
     /// Windows install media boot through cdboot.efi, which waits a few seconds for "Press any key to

@@ -100,7 +100,10 @@ public final class SerialConsoleBridge: @unchecked Sendable {
             return
         }
         let data = Data(buf[0..<n])
-        log.write(data)
+        // FileHandle.write(_:) raises an Objective-C exception on a full disk, which ends the app.
+        // A write that fails here only loses log lines; the console goes on, and logging resumes
+        // once there is space again.
+        try? log.write(contentsOf: data)
         // A slow console must not stall the guest. Drop anything its socket cannot accept.
         if client >= 0 {
             let written = data.withUnsafeBytes { Darwin.write(client, $0.baseAddress!, $0.count) }
