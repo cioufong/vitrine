@@ -56,7 +56,7 @@ public struct MCPPathPolicy: Sendable {
         return resolved.standardizedFileURL.path
     }
 
-    static func isInside(_ path: String, _ root: String) -> Bool {
+    public static func isInside(_ path: String, _ root: String) -> Bool {
         // APFS volumes are case-insensitive by default.
         let p = path.lowercased(), r = root.lowercased()
         return p == r || p.hasPrefix(r.hasSuffix("/") ? r : r + "/")
@@ -68,15 +68,22 @@ public struct MCPPathPolicy: Sendable {
             .filter { !$0.isEmpty && !$0.hasPrefix("#") }.map { Self.resolve($0) }
     }
 
-    /// The protected root `path` falls in, or nil when the tools may use it. For a folder, also
-    /// every symlink inside it (scp -r copies what they point to).
+    /// The protected root `resolved` falls in or contains, or nil when it is allowed. A folder that
+    /// holds a protected root (`~`, `~/Library`, `/`) counts as protected: scp -r would copy all of
+    /// it, and pulling into it could write anywhere below. The allow list opens a path and what is
+    /// below it, so allowing `~/.ssh` doesn't open `~`, which still holds the other roots.
+    static func check(_ resolved: String, allowed: [String], roots: [String]) -> String? {
+        if allowed.contains(where: { isInside(resolved, $0) }) { return nil }
+        if let root = roots.first(where: { isInside(resolved, $0) }) { return root }
+        return roots.first { root in isInside(root, resolved) && !allowed.contains { isInside(root, $0) } }
+    }
+
+    /// The protected root `path` falls in or contains, or nil when the tools may use it. For a
+    /// folder, also every symlink inside it (scp -r copies what they point to).
     public func protectedRoot(for path: String) -> String? {
         let allowed = allowList()
         let roots = protectedRoots
-        func check(_ resolved: String) -> String? {
-            guard let root = roots.first(where: { Self.isInside(resolved, $0) }) else { return nil }
-            return allowed.contains(where: { Self.isInside(resolved, $0) }) ? nil : root
-        }
+        func check(_ resolved: String) -> String? { Self.check(resolved, allowed: allowed, roots: roots) }
         let resolved = Self.resolve(path)
         if let root = check(resolved) { return root }
         var isDir: ObjCBool = false
@@ -88,6 +95,109 @@ public struct MCPPathPolicy: Sendable {
             if let root = check(Self.resolve(item.path)) { return root }
         }
         return nil
+    }
+
+    /// The protected root a file written at `path` would land in (through symlinks already on the
+    /// Mac) or that `path` contains; only the path itself is checked, not what is below it.
+    public func protectedRoot(forDestination path: String) -> String? {
+        Self.check(Self.resolve(path), allowed: allowList(), roots: protectedRoots)
+    }
+
+    // MARK: pull_file
+
+    /// One item `pull_file` downloaded: where scp put it in the staging folder, where it goes on
+    /// the Mac, and the protected root that destination falls in or contains (nil: it may be written).
+    public struct Placement: Sendable {
+        public let source: URL
+        public let destination: URL
+        public let protectedRoot: String?
+    }
+
+    /// Plans moving what scp downloaded into `staging` (a fresh private folder) to `local`, by
+    /// scp's rules: into `local` when it is a folder, else as `local` (one item only). Every file
+    /// and folder gets its final destination checked, through symlinks already on the Mac. A
+    /// symlink in the download is refused unless it is relative without `..` (so it, and any chain
+    /// of such links, stays inside what was downloaded).
+    public func planDownload(staging: URL, to local: URL) throws -> [Placement] {
+        let fm = FileManager.default
+        let entries = try fm.contentsOfDirectory(atPath: staging.path).sorted()
+        var isDir: ObjCBool = false
+        let intoFolder = fm.fileExists(atPath: local.path, isDirectory: &isDir) && isDir.boolValue
+        guard intoFolder || entries.count == 1 else {
+            throw VitrineError.invalidConfig(entries.isEmpty ? "the guest sent nothing"
+                : "\(local.path) is not a folder, and the guest path matched \(entries.count) items")
+        }
+        let allowed = allowList(), roots = protectedRoots
+        var plan: [Placement] = []
+        for entry in entries {
+            let source = staging.appendingPathComponent(entry)
+            let destination = intoFolder ? local.appendingPathComponent(entry) : local
+            // Pre-order (a folder before what is in it); symlinked folders are not descended into.
+            let below = fm.enumerator(atPath: source.path)?.compactMap { $0 as? String } ?? []
+            for rel in [""] + below {
+                let from = rel.isEmpty ? source : source.appendingPathComponent(rel)
+                let to = rel.isEmpty ? destination : destination.appendingPathComponent(rel)
+                if let target = try? fm.destinationOfSymbolicLink(atPath: from.path),
+                   target.hasPrefix("/") || target.split(separator: "/").contains("..") {
+                    throw VitrineError.invalidConfig("the guest sent a symlink, \(rel.isEmpty ? entry : entry + "/" + rel) -> \(target), that points outside what was copied")
+                }
+                plan.append(Placement(source: from, destination: to,
+                                      protectedRoot: Self.check(Self.resolve(to.path), allowed: allowed, roots: roots)))
+            }
+        }
+        return plan
+    }
+
+    /// The placements still protected when the user approved writing to `approved` (resolved): one
+    /// below it is covered only when `approved` lies within that placement's protected root, so
+    /// approving `~/.ssh` doesn't cover `~/.zshrc`, and an approved ancestor covers none of the roots in it.
+    public static func needingApproval(_ plan: [Placement], approved: String?) -> [Placement] {
+        plan.filter { p in
+            guard let root = p.protectedRoot else { return false }
+            guard let approved else { return true }
+            return !(isInside(resolve(p.destination.path), approved) && isInside(approved, root))
+        }
+    }
+
+    /// Moves a planned download into place: folders are created or merged into, files and symlinks
+    /// replace what is there (as scp would; a symlink there is replaced, not written through).
+    /// A destination that was allowed when planned is checked again just before it is written,
+    /// in case a symlink appeared in the meantime.
+    public func place(_ plan: [Placement]) throws {
+        let fm = FileManager.default
+        let allowed = allowList(), roots = protectedRoots
+        // Folders get the guest's mode once filled: a read-only one couldn't take its contents.
+        var modes: [(URL, Any)] = []
+        defer { for (url, mode) in modes.reversed() { try? fm.setAttributes([.posixPermissions: mode], ofItemAtPath: url.path) } }
+        for p in plan {
+            if p.protectedRoot == nil, let root = Self.check(Self.resolve(p.destination.path), allowed: allowed, roots: roots) {
+                throw VitrineError.invalidConfig("\(p.destination.path) is now in a protected location (\(root))")
+            }
+            let attrs = try fm.attributesOfItem(atPath: p.source.path)
+            let existing = try? fm.attributesOfItem(atPath: p.destination.path)  // not following a symlink
+            if attrs[.type] as? FileAttributeType == .typeDirectory {
+                // The staging copy too, so what is in it can be moved out (and the folder deleted).
+                try fm.setAttributes([.posixPermissions: 0o700], ofItemAtPath: p.source.path)
+                if existing == nil {
+                    try fm.createDirectory(at: p.destination, withIntermediateDirectories: false,
+                                           attributes: [.posixPermissions: 0o700])
+                    modes.append((p.destination, attrs[.posixPermissions] ?? 0o755))
+                } else {
+                    var isDir: ObjCBool = false
+                    guard fm.fileExists(atPath: p.destination.path, isDirectory: &isDir), isDir.boolValue else {
+                        throw VitrineError.invalidConfig("\(p.destination.path) exists and is not a folder")
+                    }
+                }
+            } else {
+                if let existing {
+                    guard existing[.type] as? FileAttributeType != .typeDirectory else {
+                        throw VitrineError.invalidConfig("\(p.destination.path) is a folder")
+                    }
+                    try fm.removeItem(at: p.destination)
+                }
+                try fm.moveItem(at: p.source, to: p.destination)
+            }
+        }
     }
 
     /// Adds or removes a path in the allow list (for `vitrinectl mcp allow|disallow`).
