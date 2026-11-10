@@ -9,6 +9,10 @@ public final class QEMUMachine: @unchecked Sendable {
     public let config: VMConfig
     public private(set) var rfb: RFBClient?
     public var onExit: ((QEMUExit) -> Void)?
+    /// The QMP connection was replaced after a timeout or I/O error, with QEMU's run state found
+    /// then ("running", "paused", ...; nil if unreadable). The command that failed may still have
+    /// taken effect, so an owner that tracks paused/running should resync from this. Main queue.
+    public var onControlReconnected: ((String?) -> Void)?
 
     private let env: QEMUEnvironment
     private let sockets: QEMUSockets
@@ -152,7 +156,7 @@ public final class QEMUMachine: @unchecked Sendable {
             }
             throw error
         }
-        qmp = q
+        adoptControl(q)
         rfb = r
         r.onSessionError = { [log] error in
             try? log.write(contentsOf: Data("Vitrine: display connection failed (\(error.localizedDescription)), reconnecting\n".utf8))
@@ -395,6 +399,19 @@ public final class QEMUMachine: @unchecked Sendable {
         throw VitrineError.backend("timed out restoring the saved state")
     }
 
+    private func adoptControl(_ client: QMPClient) {
+        let logURL = bundle.qemuLogURL
+        client.onReconnect = { [weak self] status in
+            if let h = try? FileHandle(forWritingTo: logURL) {
+                _ = try? h.seekToEnd()
+                try? h.write(contentsOf: Data("Vitrine: QMP reconnected after an error; VM status \(status ?? "unknown")\n".utf8))
+                try? h.close()
+            }
+            DispatchQueue.main.async { self?.onControlReconnected?(status) }
+        }
+        qmp = client
+    }
+
     /// Runs a QMP command off the main thread.
     @discardableResult
     func control<T>(_ body: @escaping (QMPClient) throws -> T) async throws -> T {
@@ -539,7 +556,7 @@ public final class QEMUMachine: @unchecked Sendable {
         do {
             qmp = nil
             let path = sockets.qmp.path
-            qmp = try await Task.detached { try QMPClient(socketPath: path, timeout: 2, commandTimeout: 3) }.value
+            adoptControl(try await Task.detached { try QMPClient(socketPath: path, timeout: 2, commandTimeout: 3) }.value)
             var info = try await control { try $0.execute("query-migrate") as? [String: Any] }
             let terminal = ["none", "completed", "failed", "cancelled"]
             if !terminal.contains(info?["status"] as? String ?? "") {

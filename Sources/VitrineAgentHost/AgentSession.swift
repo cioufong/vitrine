@@ -53,11 +53,16 @@ public final class AgentSession {
     private var pendingFrameCount = 0
     private var framesCancelled = false
     private var pingTimer: Timer?
-    private var lastPong = Date()
+    /// Keepalive times are on a monotonic clock (`now()`): wall-clock changes must not look like
+    /// a silent guest.
+    private var lastPong: TimeInterval = 0
+    /// When the keepalive last ran (or was started); a long gap means the timer was starved, not the guest.
+    private var lastKeepalive: TimeInterval?
     private var pingNonce: UInt64 = 0
     /// Round-trip latency of the last ping, for diagnostics.
     public private(set) var latency: TimeInterval?
-    private var pingSentAt: [UInt64: Date] = [:]
+    private var pingSentAt: [UInt64: TimeInterval] = [:]
+    private let now: () -> TimeInterval
 
     private let token: String?
 
@@ -65,6 +70,7 @@ public final class AgentSession {
     /// when the VM wasn't started with it).
     /// How long the guest may go without answering pings before the session is given up.
     private let pongTimeout: TimeInterval
+    private let pingInterval: TimeInterval
 
     /// `pongTimeout`: 10 s suits hardware-accelerated guests; fully emulated ones (x86_64 on Apple
     /// silicon) can stall far longer under load without anything being wrong.
@@ -75,8 +81,12 @@ public final class AgentSession {
     }
 
     init(channel: AgentChannel, token: String? = nil, pongTimeout: TimeInterval = 10,
-         frameQueue: DispatchQueue, maxPendingFrameBytes: Int, maxPendingFrameCount: Int) {
+         frameQueue: DispatchQueue, maxPendingFrameBytes: Int, maxPendingFrameCount: Int,
+         pingInterval: TimeInterval = 2,
+         now: @escaping () -> TimeInterval = { TimeInterval(DispatchTime.now().uptimeNanoseconds) / 1e9 }) {
         precondition(maxPendingFrameBytes > 0 && maxPendingFrameCount > 0)
+        self.pingInterval = pingInterval
+        self.now = now
         self.frameQueue = frameQueue
         self.maxPendingFrameBytes = maxPendingFrameBytes
         self.maxPendingFrameCount = maxPendingFrameCount
@@ -93,8 +103,14 @@ public final class AgentSession {
                       onClose: { [weak self] error in self?.closed(error) })
         channel.send(.hello(Hello(role: "host", os: Self.hostOSDescription, agentVersion: Self.hostAgentVersion,
                                   capabilities: ["coherence", "clipboard", "input", "network", "stats"], token: token)))
-        lastPong = Date()
-        pingTimer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in self?.keepalive() }
+        lastPong = now()
+        lastKeepalive = lastPong // the first tick is measured from here
+        // .common, not just .default: modal panels and alerts, menu tracking and live resize run
+        // the main run loop in other modes, and a keepalive that stops there would afterwards
+        // mistake its own silence for the guest's.
+        let timer = Timer(timeInterval: pingInterval, repeats: true) { [weak self] _ in self?.keepalive() }
+        RunLoop.main.add(timer, forMode: .common)
+        pingTimer = timer
     }
 
     public func close() {
@@ -132,16 +148,43 @@ public final class AgentSession {
         }
     }
 
+    enum KeepaliveAction: Equatable {
+        /// Send the next ping.
+        case ping
+        /// The keepalive itself didn't run for a while (main thread blocked, host asleep): no pings
+        /// went out, so the missing pongs say nothing about the guest. Start the timeout over.
+        case restartTimeout
+        /// Pings went out and the guest didn't answer in time.
+        case giveUp
+    }
+
+    /// What a keepalive tick at `now` does. Pure, for testing; all times on one monotonic clock.
+    static func keepaliveAction(now: TimeInterval, lastTick: TimeInterval?, lastPong: TimeInterval,
+                                interval: TimeInterval, pongTimeout: TimeInterval) -> KeepaliveAction {
+        if let lastTick, now - lastTick > 2 * interval { return .restartTimeout }
+        return now - lastPong > pongTimeout ? .giveUp : .ping
+    }
+
     private func keepalive() {
-        if Date().timeIntervalSince(lastPong) > pongTimeout {
+        let t = now()
+        let action = Self.keepaliveAction(now: t, lastTick: lastKeepalive, lastPong: lastPong,
+                                          interval: pingInterval, pongTimeout: pongTimeout)
+        lastKeepalive = t
+        switch action {
+        case .giveUp:
             // A virtio-serial chardev accepts connections even when no agent runs in the guest, so a
             // session that never said hello is just "no agent yet" — close quietly and let the caller retry.
             if isReady { onLog?("guest agent stopped responding") }
             close()
             return
+        case .restartTimeout:
+            lastPong = t
+            pingSentAt.removeAll() // their round trips include the stall
+        case .ping:
+            break
         }
         pingNonce &+= 1
-        pingSentAt[pingNonce] = Date()
+        pingSentAt[pingNonce] = t
         if pingSentAt.count > 8 { pingSentAt.removeAll() }
         send(.ping(pingNonce))
     }
@@ -155,7 +198,7 @@ public final class AgentSession {
                 close()
                 return
             }
-            lastPong = Date()
+            lastPong = now()
             state = .ready(hello)
         case .windowList(let list):
             windows = list.windows.filter { $0.frame.isSane }
@@ -207,8 +250,8 @@ public final class AgentSession {
         case .ping(let n):
             send(.pong(n))
         case .pong(let n):
-            lastPong = Date()
-            if let sent = pingSentAt.removeValue(forKey: n) { latency = Date().timeIntervalSince(sent) }
+            lastPong = now()
+            if let sent = pingSentAt.removeValue(forKey: n) { latency = lastPong - sent }
         case .log(let s):
             onLog?("guest: \(s)")
         case .appIcon(let icon):

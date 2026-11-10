@@ -348,8 +348,15 @@ public struct SnapshotStore: Sendable {
         }
     }
 
-    public func delete(_ id: UUID) throws {
+    /// Refuses the baseline of a disposable run that hasn't been rolled back yet (see
+    /// `DisposableSession.baselineSnapshotID`); the run's cleanup removes it.
+    public func delete(_ id: UUID) throws { try delete(id, allowingDisposableBaseline: false) }
+
+    func delete(_ id: UUID, allowingDisposableBaseline: Bool) throws {
         try locked {
+            if !allowingDisposableBaseline, DisposableSession(bundle: bundle).baselineSnapshotID == id {
+                throw VitrineError.invalidConfig("this snapshot is the baseline of an unfinished disposable run and is needed to discard that run's changes; it is removed automatically once the VM is started and stopped again")
+            }
             try Self.validatePath("snapshots/\(id.uuidString)", in: bundle.url)
             let dir = directory(for: id)
             guard FileManager.default.fileExists(atPath: dir.path) else { throw VitrineError.fileNotFound("snapshot \(id)") }

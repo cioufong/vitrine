@@ -479,12 +479,30 @@ public struct GuestNetworkInfo: Codable, Equatable, Sendable {
     public var interfaces: [Interface]
     public init(interfaces: [Interface]) { self.interfaces = interfaces }
 
+    public static let maxInterfaces = 64
+    /// Per family (IPv4 and IPv6 separately; older hosts check them that way).
+    public static let maxAddressesPerFamily = 32
+
     /// The guest is untrusted: a handful of interfaces with short strings.
     public var isSane: Bool {
-        interfaces.count <= 64 && interfaces.allSatisfy { i in
-            i.name.utf8.count <= 64 && i.mac.utf8.count <= 32 && i.ipv4.count <= 32 && i.ipv6.count <= 32
+        interfaces.count <= Self.maxInterfaces && interfaces.allSatisfy { i in
+            i.name.utf8.count <= 64 && i.mac.utf8.count <= 32
+                && i.ipv4.count <= Self.maxAddressesPerFamily && i.ipv6.count <= Self.maxAddressesPerFamily
                 && (i.ipv4 + i.ipv6).allSatisfy { $0.utf8.count <= 64 }
         }
+    }
+
+    /// The info cut to the counts above: the first interfaces, and each one's first addresses.
+    /// A guest with many addresses (containers, IPv6 privacy addresses) must not fail the message,
+    /// which would close the channel again on every reconnect. Agents already in the field send
+    /// every address, so the host clamps rather than relying on them to.
+    public func clamped() -> GuestNetworkInfo {
+        GuestNetworkInfo(interfaces: interfaces.prefix(Self.maxInterfaces).map {
+            var i = $0
+            i.ipv4 = Array(i.ipv4.prefix(Self.maxAddressesPerFamily))
+            i.ipv6 = Array(i.ipv6.prefix(Self.maxAddressesPerFamily))
+            return i
+        })
     }
 
     /// IPv4 addresses of the interface with `mac` (any MAC notation), else nil.
@@ -691,7 +709,7 @@ public enum AgentCodec {
         case .launchApp: return .launchApp(try decoder.decode(LaunchApp.self, from: payload))
         case .timeSync: return .timeSync(try decoder.decode(TimeSync.self, from: payload))
         case .guestNetwork:
-            let info = try decoder.decode(GuestNetworkInfo.self, from: payload)
+            let info = try decoder.decode(GuestNetworkInfo.self, from: payload).clamped()
             guard info.isSane else { throw AgentProtocolError.malformed("guest network info") }
             return .guestNetwork(info)
         case .guestStats:
