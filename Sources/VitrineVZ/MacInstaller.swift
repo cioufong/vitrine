@@ -26,6 +26,26 @@ public final class MacInstaller {
 
     /// Builds the bundle (hardware model, aux storage, disk, config) for `restoreImage`.
     public func createBundle(options: Options, restoreImage: VZMacOSRestoreImage) throws -> VMBundle {
+        let (url, config, populate) = try plan(options: options, restoreImage: restoreImage)
+        return try VMBundle.create(at: url, config: config, populate: populate)
+    }
+
+    /// Builds the bundle and installs macOS from `ipsw` into it. The bundle stays locked and
+    /// hidden from the library until the installation finished (see `VMBundle.beginCreation`);
+    /// if it fails or the task is cancelled (which stops the installer), the bundle is removed.
+    @MainActor
+    public func createAndInstall(options: Options, restoreImage: VZMacOSRestoreImage, ipsw: URL,
+                                 progress: @escaping (Phase) -> Void) async throws -> VMBundle {
+        let (url, config, populate) = try plan(options: options, restoreImage: restoreImage)
+        return try await VMBundle.create(at: url, config: config) { bundle, config async throws in
+            try populate(bundle, &config)
+            try bundle.saveConfig(config)
+            try await self.install(bundle: bundle, ipsw: ipsw, progress: progress)
+        }
+    }
+
+    private func plan(options: Options, restoreImage: VZMacOSRestoreImage) throws
+        -> (URL, VMConfig, (VMBundle, inout VMConfig) throws -> Void) {
         guard let req = restoreImage.mostFeaturefulSupportedConfiguration else {
             throw VitrineError.unsupported("restore image \(restoreImage.buildVersion) cannot run on this Mac")
         }
@@ -44,7 +64,7 @@ public final class MacInstaller {
             config.account = .init(fullName: acct.fullName, username: acct.username)
         }
 
-        return try VMBundle.create(at: options.bundleURL ?? VMLibrary.bundleURL(named: options.name), config: config) { bundle, config in
+        return (options.bundleURL ?? VMLibrary.bundleURL(named: options.name), config, { bundle, config in
             try req.hardwareModel.dataRepresentation.write(to: bundle.hardwareModelURL)
             _ = try VZMacAuxiliaryStorage(creatingStorageAt: bundle.auxiliaryStorageURL,
                                           hardwareModel: req.hardwareModel, options: [])
@@ -53,7 +73,7 @@ public final class MacInstaller {
             if let acct = options.account {
                 try GuestCredentialStore.setPassword(acct.password, in: bundle)
             }
-        }
+        })
     }
 
     /// Installs macOS from `ipsw` into an already-created bundle.
@@ -69,10 +89,26 @@ public final class MacInstaller {
             DispatchQueue.main.async { progress(.installing(fraction)) }
         }
         defer { observation.invalidate() }
-        try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Void, Error>) in
-            installer.install { cont.resume(with: $0) }
+        // Cancelling the task cancels the installer's progress, which stops the installation. VZ
+        // raises an exception for a progress cancelled before install() was called, hence `started`.
+        var started = false
+        do {
+            try await withTaskCancellationHandler {
+                try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Void, Error>) in
+                    if Task.isCancelled { cont.resume(throwing: CancellationError()); return }
+                    installer.install { cont.resume(with: $0) }
+                    started = true
+                }
+            } onCancel: {
+                DispatchQueue.main.async { if started { installer.progress.cancel() } }
+            }
+        } catch {
+            if vm.canStop { try? await vm.stop() }
+            if Task.isCancelled { throw CancellationError() }
+            throw error
         }
         if vm.canStop { try? await vm.stop() }
+        try Task.checkCancellation()
         progress(.done)
     }
 }

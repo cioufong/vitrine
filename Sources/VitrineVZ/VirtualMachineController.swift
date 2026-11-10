@@ -16,7 +16,7 @@ public final class VirtualMachineController: NSObject, ObservableObject {
 
     public let bundle: VMBundle
     @Published public private(set) var config: VMConfig
-    @Published public private(set) var state: RunState = .stopped {
+    @Published public internal(set) var state: RunState = .stopped {
         didSet {
             // A running VM keeps the Mac from idle-sleeping (see VitrinePreferences.keepAwakeWhileRunning).
             SleepGuard.shared.set(bundle.url.path, running: [.starting, .running, .suspending, .stopping].contains(state))
@@ -59,7 +59,12 @@ public final class VirtualMachineController: NSObject, ObservableObject {
     /// Set instead of `vz` for VMs on the QEMU backend.
     @Published public private(set) var qemu: QEMUMachine?
     /// Whichever of the two is running.
-    var backend: MachineBackend? { qemu ?? vz }
+    var backend: MachineBackend? { qemu ?? vz ?? backendOverride }
+    /// Tests only: stands in for a running backend.
+    var backendOverride: MachineBackend?
+    /// Whether a backend is live, whatever `state` says (e.g. `.error` after a suspend whose
+    /// recovery couldn't be confirmed): Force Stop is what ends it.
+    public var hasLiveBackend: Bool { backend != nil }
     private var agentRetryTask: Task<Void, Never>?
     let log: VMLog
     /// USB drives and devices plugged into the running VM.
@@ -134,6 +139,10 @@ public final class VirtualMachineController: NSObject, ObservableObject {
                         : VitrineError.backend("QEMU exited with status \(exit.status)\n\(exit.tail ?? "")")
                     self.didStop(error: err)
                 }
+                machine.onControlReconnected = { [weak self, weak machine] status in
+                    guard let self, let machine, self.qemu === machine else { return }
+                    self.controlReconnected(status: status)
+                }
                 qemu = machine
                 networkLink = try await Self.openNetworkLink(bundle: bundle, config: config, qemu: true)
                 machine.netdev = networkLink?.qemuNetdev
@@ -204,24 +213,26 @@ public final class VirtualMachineController: NSObject, ObservableObject {
     /// The agent only exists once Windows setup's first-logon script has installed it: remember
     /// that, so a setup whose own power-off was interrupted still gets its media ejected.
     func noteWindowsSetupProgress() {
-        var c = (try? bundle.loadConfig()) ?? config
-        guard case .installing = WindowsSetup(c) else { return }
-        c.windowsSetupAgentSeen = true
-        try? saveConfig(c)
+        _ = try? updateConfig { c in
+            guard case .installing = WindowsSetup(c) else { return }
+            c.windowsSetupAgentSeen = true
+        }
     }
 
     /// At a stop after setup got as far as the agent: eject the media setup's power-off would have.
     private func ejectMediaIfSetupDone() {
-        guard WindowsSetup(config) == .agentSeen else { return }
-        let ejected = config.ejectInstallMedia(in: bundle)
-        try? bundle.saveConfig(config)
+        var ejected: [String] = []
+        _ = try? updateConfig(validating: false) { c in
+            guard WindowsSetup(c) == .agentSeen else { return }
+            ejected = c.ejectInstallMedia(in: bundle)
+        }
         if !ejected.isEmpty { log.write("Windows setup had finished; ejected \(ejected.joined(separator: ", "))") }
     }
 
     private func finishWindowsSetup() {
         restartingAfterSetup = true
-        let ejected = config.ejectInstallMedia(in: bundle)
-        try? bundle.saveConfig(config)
+        var ejected: [String] = []
+        _ = try? updateConfig(validating: false) { ejected = $0.ejectInstallMedia(in: bundle) }
         didStop(error: nil)
         log.write("Windows setup finished; ejected \(ejected.joined(separator: ", ")) and restarting")
         Task { [weak self] in
@@ -286,11 +297,9 @@ public final class VirtualMachineController: NSObject, ObservableObject {
     }
 
     private func markProvisioned() {
-        guard var account = config.account, !account.provisioned else { return }
-        account.provisioned = true
-        config.account = account
-        try? bundle.saveConfig(config)
-        log.write("guest account \(account.username) provisioned")
+        guard let username = config.account?.username, config.account?.provisioned == false else { return }
+        _ = try? updateConfig(validating: false) { $0.account?.provisioned = true }
+        log.write("guest account \(username) provisioned")
     }
 
     /// TCP connect probe (see GuestNetwork.tcpReachable for why it shells out to nc).
@@ -334,6 +343,9 @@ public final class VirtualMachineController: NSObject, ObservableObject {
     /// Asks the guest to shut down and waits up to `timeout`. Unlike `stop`, never forces it off:
     /// returns false if it's still running then (it may yet finish shutting down on its own).
     public func shutDown(timeout: TimeInterval) async -> Bool {
+        // Left in .error by a suspend that couldn't be undone: a shutdown request can't be relied
+        // on, and the VM isn't off. Only forcing it off ends it.
+        if state == .error, backend != nil { return false }
         guard let b = await requestShutdownAndWait(timeout: timeout), backend === b else { return true }
         if b.hasStopped { await forceStop(); return true } // stopped, its stop not delivered yet: tidy up
         if state == .stopping { state = .running }
@@ -383,8 +395,24 @@ public final class VirtualMachineController: NSObject, ObservableObject {
         if backend === b, state == .paused { state = .running }
     }
 
+    /// QMP was reconnected after a timeout or I/O error: a pause or resume that seemed to fail may
+    /// have taken effect, so QEMU's own run state wins. Transitions (starting, suspending,
+    /// stopping) issue their own stop/cont and are left alone, as are unknown statuses.
+    func controlReconnected(status: String?) {
+        guard state == .running || state == .paused else { return }
+        switch status {
+        case "running": state = .running
+        case "paused": state = .paused
+        default: return
+        }
+        log.write("QEMU control reconnected; VM is \(status ?? "unknown")")
+    }
+
     /// Saves RAM + device state to the bundle and stops. The next `start()` resumes instantly.
     public func suspend() async throws {
+        if state == .error, backend != nil {
+            throw VitrineError.backend("\(bundle.name) is in an unknown state after a failed suspend; force it off")
+        }
         if config.features.disposable, state == .running || state == .paused {
             throw VitrineError.unsupported("a disposable VM can't be suspended (its changes are discarded when it stops); shut it down instead")
         }
@@ -457,11 +485,30 @@ public final class VirtualMachineController: NSObject, ObservableObject {
             try? FileManager.default.removeItem(at: bundle.savedStateSpiceMarkerURL)
             try? FileManager.default.removeItem(at: bundle.suspendedUSBURL)
             if vm.state == .paused { try? await vm.resume() }
-            state = vm.state == .running ? .running : .error
-            if state == .running { await replugUSB(unplugged) }
-            lastError = "Suspend failed: \(error.localizedDescription)"
             log.write("suspend failed: \(error.localizedDescription)")
+            switch Self.outcomeOfFailedSuspend(vm.state) {
+            case .running:
+                state = .running
+                await replugUSB(unplugged)
+            case .stopped:
+                // The guest stopped meanwhile (its stop is ignored while suspending): end the run.
+                didStop(error: error)
+            case .stuck:
+                state = .error // still owned: Force Stop ends it
+            }
+            lastError = "Suspend failed: \(error.localizedDescription)"
             throw error
+        }
+    }
+
+    enum FailedSuspendOutcome: Equatable { case running, stopped, stuck }
+
+    /// What a VZ machine in `vmState` is after a failed suspend (and an attempt to resume it).
+    nonisolated static func outcomeOfFailedSuspend(_ vmState: VZVirtualMachine.State) -> FailedSuspendOutcome {
+        switch vmState {
+        case .running: return .running
+        case .stopped, .error: return .stopped
+        default: return .stuck
         }
     }
 
@@ -500,12 +547,10 @@ public final class VirtualMachineController: NSObject, ObservableObject {
     public func updateShares(_ shares: [VMConfig.SharedDirectory]) throws {
         // Start from the saved configuration: another process (vitrinectl set) may have changed
         // other settings since this controller loaded it.
-        var latest = (try? bundle.loadConfig()) ?? config
-        latest.shares = shares
-        if latest.guestOS == .windows { latest.assignDriveLetters() }
-        try latest.validate(bundle: bundle)
-        try bundle.saveConfig(latest)
-        config = latest
+        try updateConfig { latest in
+            latest.shares = shares
+            if latest.guestOS == .windows { latest.assignDriveLetters() }
+        }
         try backend?.updateShares(config)
         if let agent { sendShares(to: agent) }
     }
@@ -514,9 +559,8 @@ public final class VirtualMachineController: NSObject, ObservableObject {
     private func sendShares(to session: AgentSession) {
         guard let qemu, config.guestOS == .windows else { return }
         // Folders shared before letters were remembered get theirs now, and keep them.
-        var withLetters = (try? bundle.loadConfig()) ?? config
-        if withLetters.assignDriveLetters() {
-            do { try saveConfig(withLetters) } catch { log.write("could not save drive letters: \(error.localizedDescription)") }
+        do { try updateConfig { _ = $0.assignDriveLetters() } } catch {
+            log.write("could not save drive letters: \(error.localizedDescription)")
         }
         guard let samba = qemu.samba else {
             if let reason = qemu.sambaUnavailableReason { log.write("shared folders unavailable: \(reason)") }
@@ -559,11 +603,7 @@ public final class VirtualMachineController: NSObject, ObservableObject {
     }
 
     public func updatePortForwards(_ change: (inout [VMConfig.PortForward]) -> Void) throws {
-        func edit() throws {
-            var fresh = try bundle.loadConfig()
-            change(&fresh.network.portForwards)
-            try saveConfig(fresh)
-        }
+        func edit() throws { try updateConfig { change(&$0.network.portForwards) } }
         if bundle.holdsRunLock, state == .running || state == .paused {
             try edit()
         } else {
@@ -571,10 +611,26 @@ public final class VirtualMachineController: NSObject, ObservableObject {
         }
     }
 
+    /// Replaces the whole saved configuration. Prefer `updateConfig`, which only changes what
+    /// it is asked to and so never overwrites another writer's change with a stale copy.
     public func saveConfig(_ new: VMConfig) throws {
         try new.validate(bundle: bundle)
         try bundle.saveConfig(new)
         config = new
+    }
+
+    /// Changes the saved configuration (loaded fresh, see `VMBundle.updateConfig`), validated
+    /// unless `validating` is false, and adopts the result as `config`. Decide inside `change`,
+    /// on the configuration it is given, not on `config`, which may be out of date.
+    @discardableResult
+    public func updateConfig(validating: Bool = true, _ change: (inout VMConfig) throws -> Void) throws -> VMConfig {
+        let bundle = bundle
+        let updated = try bundle.updateConfig { c in
+            try change(&c)
+            if validating { try c.validate(bundle: bundle) }
+        }
+        config = updated
+        return updated
     }
 
     /// Resizes the guest display (used by Coherence to match the host screen).
@@ -672,18 +728,14 @@ public final class VirtualMachineController: NSObject, ObservableObject {
     }
 
     private func updateAccount(_ change: (inout VMConfig.GuestAccount) -> Void) {
-        guard var account = config.account else { return }
-        change(&account)
-        config.account = account
-        try? bundle.saveConfig(config)
+        _ = try? updateConfig(validating: false) { c in
+            guard var account = c.account else { return }
+            change(&account)
+            c.account = account
+        }
     }
 
-    private func recordAgentInstalled() {
-        guard var account = config.account else { return }
-        account.agentInstalled = true
-        config.account = account
-        try? bundle.saveConfig(config)
-    }
+    private func recordAgentInstalled() { updateAccount { $0.agentInstalled = true } }
 
     private func startAgentConnector() {
         agentRetryTask?.cancel()
@@ -918,9 +970,7 @@ public final class VirtualMachineController: NSObject, ObservableObject {
 
     /// Turns clipboard sharing on or off now and for later runs.
     public func setClipboardSharing(_ on: Bool) throws {
-        var c = config
-        c.features.clipboard = on
-        try saveConfig(c)
+        try updateConfig { $0.features.clipboard = on }
         if on, let session = agent, session.isReady {
             if pasteboard == nil { startClipboardSync(session) }
         } else {
@@ -1116,8 +1166,12 @@ extension VirtualMachineController {
     func beginDisposableRunIfNeeded() throws {
         let session = DisposableSession(bundle: bundle)
         if session.isPending {
+            // end() also keeps the changes when the baseline is missing (DisposableSession logs that).
+            let modeOff = (try? bundle.loadConfig())?.features.disposable == false
             let discarded = try session.end()
-            log.write(discarded ? "rolled back an unfinished disposable run" : "kept the changes of an unfinished run (disposable mode is off)")
+            log.write(discarded ? "rolled back an unfinished disposable run"
+                      : modeOff ? "kept the changes of an unfinished run (disposable mode is off)"
+                      : "kept the changes of an unfinished disposable run (nothing to roll back to)")
             config = try bundle.loadConfig()
         }
         if config.features.disposable {

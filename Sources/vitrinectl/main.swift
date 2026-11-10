@@ -699,16 +699,10 @@ do {
                 ipswPath = URL(fileURLWithPath: (source as NSString).expandingTildeInPath)
             }
             let image = try await RestoreImages.load(ipswPath)
-            let installer = MacInstaller()
-            let bundle = try installer.createBundle(options: opts, restoreImage: image)
-            print("created \(bundle.url.path)")
-            do {
-                try await installer.install(bundle: bundle, ipsw: ipswPath) { phase in
-                    if case .installing(let f) = phase { progressBar(f, "install") }
-                }
-            } catch {
-                try? FileManager.default.removeItem(at: bundle.url)
-                throw error
+            // Locked and hidden from `list` until installed; an interrupted install (Ctrl-C) leaves
+            // a marked bundle that Vitrine.app moves to the Trash at its next launch.
+            let bundle = try await MacInstaller().createAndInstall(options: opts, restoreImage: image, ipsw: ipswPath) { phase in
+                if case .installing(let f) = phase { progressBar(f, "install") }
             }
             print("\ninstalled macOS into \(bundle.name). Start it with: vitrinectl run \(bundle.name) --gui")
         }

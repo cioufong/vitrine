@@ -89,7 +89,7 @@ struct VitrineCommands: Commands {
                 Button("Suspend") { model.suspend(b) }.disabled(!running)
                 Button("Shut Down") { model.stop(b) }.disabled(!running)
                 Button("Restart") { model.restart(b) }.disabled(!running)
-                Button("Force Stop") { model.stop(b, force: true) }.disabled(!running)
+                Button("Force Stop") { model.stop(b, force: true) }.disabled(!running && !c.hasLiveBackend)
                 Divider()
                 Button("Take Snapshot…") { model.configTab = .snapshots; openWindow(id: "config", value: b.url.path) }
                     .keyboardShortcut("s", modifiers: [.command, .control])

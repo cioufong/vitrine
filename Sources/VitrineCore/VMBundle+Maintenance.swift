@@ -10,11 +10,7 @@ public extension VMBundle {
     func deleteSafely(trash: Bool = false) throws -> URL? {
         try withExclusiveLock {
             let fm = FileManager.default
-            if trash {
-                var trashed: NSURL?
-                try fm.trashItem(at: url, resultingItemURL: &trashed)
-                return trashed as URL?
-            }
+            if trash { return try trashWhileLocked() }
             let retired = url.deletingLastPathComponent().appendingPathComponent(".vitrine-delete-\(UUID().uuidString)")
             try fm.moveItem(at: url, to: retired)
             do {
@@ -27,5 +23,12 @@ public extension VMBundle {
             }
             return nil
         }
+    }
+
+    /// Moves the package to the Trash; the caller holds its lock.
+    internal func trashWhileLocked() throws -> URL? {
+        var trashed: NSURL?
+        try FileManager.default.trashItem(at: url, resultingItemURL: &trashed)
+        return trashed as URL?
     }
 }

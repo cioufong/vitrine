@@ -66,6 +66,10 @@ public struct VMBundle: Sendable, Hashable {
     public var transferDirectory: URL { url.appendingPathComponent("transfer", isDirectory: true) }
     /// Present while a process owns the VM; contains its PID.
     public var lockURL: URL { url.appendingPathComponent("run.lock") }
+    /// Present while the VM is being created (files copied, macOS installing). Its creator holds
+    /// the lock meanwhile; with nobody holding it, the creation was interrupted.
+    public var installingMarkerURL: URL { url.appendingPathComponent(".installing") }
+    public var isInstalling: Bool { FileManager.default.fileExists(atPath: installingMarkerURL.path) }
 
     /// Whether the VM is suspended: a saved state from either backend is waiting to be resumed.
     public var hasSavedState: Bool {
@@ -127,33 +131,78 @@ public struct VMBundle: Sendable, Hashable {
     /// Creates a new bundle directory with the given config. Fails if it already exists.
     @discardableResult
     public static func create(at url: URL, config: VMConfig) throws -> VMBundle {
-        let fm = FileManager.default
-        try fm.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-        // mkdir is atomic: of two concurrent creators with the same name, exactly one succeeds.
-        guard mkdir(url.path, 0o700) == 0 else { // private: holds the guest password and seed media
-            if errno == EEXIST { throw VitrineError.io("\(url.path) already exists") }
-            throw VitrineError.io("cannot create \(url.path): \(String(cString: strerror(errno)))")
-        }
-        let bundle = VMBundle(url: url)
+        let bundle = try makeDirectory(at: url)
         do { try bundle.saveConfig(config) } catch {
-            try? fm.removeItem(at: url) // the directory made just above
+            try? FileManager.default.removeItem(at: url) // the directory made just above
             throw error
         }
         return bundle
     }
 
+    private static func makeDirectory(at url: URL) throws -> VMBundle {
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        // mkdir is atomic: of two concurrent creators with the same name, exactly one succeeds.
+        guard mkdir(url.path, 0o700) == 0 else { // private: holds the guest password and seed media
+            if errno == EEXIST { throw VitrineError.io("\(url.path) already exists") }
+            throw VitrineError.io("cannot create \(url.path): \(String(cString: strerror(errno)))")
+        }
+        return VMBundle(url: url)
+    }
+
+    /// Creates a new bundle that stays locked and marked as being installed (hidden from the
+    /// library, refused by start) until `finishCreation` or `abandonCreation`. Lock before marker:
+    /// a marker seen without a lock holder always means an interrupted creation.
+    public static func beginCreation(at url: URL, config: VMConfig) throws -> VMBundle {
+        let bundle = try makeDirectory(at: url)
+        do {
+            try bundle.acquireRunLock(role: .operation)
+            guard FileManager.default.createFile(atPath: bundle.installingMarkerURL.path, contents: nil) else {
+                throw VitrineError.io("cannot write \(bundle.installingMarkerURL.path)")
+            }
+            try bundle.saveConfig(config)
+        } catch {
+            bundle.abandonCreation()
+            throw error
+        }
+        return bundle
+    }
+
+    /// The bundle is complete: an ordinary VM from now on.
+    public func finishCreation() throws {
+        try FileManager.default.removeItem(at: installingMarkerURL)
+        releaseRunLock()
+    }
+
+    /// Deletes a bundle whose creation failed in this process (its creator still holds the lock).
+    public func abandonCreation() {
+        try? FileManager.default.removeItemForcibly(at: url) // may hold files copied off read-only media
+        releaseRunLock()
+    }
+
+    /// Moves a bundle whose creation was interrupted (marker present, nobody holding the lock) to
+    /// the Trash, so it can still be recovered. Nil when it isn't one; throws while its creator runs.
+    @discardableResult
+    public func trashAbandonedCreation() throws -> URL? {
+        try withExclusiveLock {
+            guard isInstalling else { return nil } // re-checked under the lock
+            return try trashWhileLocked() // as deleteSafely(trash: true)
+        }
+    }
+
     /// Creates a new bundle, lets `populate` add its files and finish the config, then saves the
-    /// config. If anything fails, the half-made bundle is deleted.
+    /// config. The bundle is locked and hidden meanwhile (see `beginCreation`). If anything
+    /// fails, the half-made bundle is deleted.
     @discardableResult
     public static func create(at url: URL, config: VMConfig,
                               populate: (VMBundle, inout VMConfig) throws -> Void) throws -> VMBundle {
-        let bundle = try create(at: url, config: config)
+        let bundle = try beginCreation(at: url, config: config)
         var config = config
         do {
             try populate(bundle, &config)
             try bundle.saveConfig(config)
+            try bundle.finishCreation()
         } catch {
-            try? FileManager.default.removeItemForcibly(at: url) // may hold files copied off read-only media
+            bundle.abandonCreation()
             throw error
         }
         return bundle
@@ -163,13 +212,14 @@ public struct VMBundle: Sendable, Hashable {
     @discardableResult
     public static func create(at url: URL, config: VMConfig,
                               populate: (VMBundle, inout VMConfig) async throws -> Void) async throws -> VMBundle {
-        let bundle = try create(at: url, config: config)
+        let bundle = try beginCreation(at: url, config: config)
         var config = config
         do {
             try await populate(bundle, &config)
             try bundle.saveConfig(config)
+            try bundle.finishCreation()
         } catch {
-            try? FileManager.default.removeItemForcibly(at: url)
+            bundle.abandonCreation()
             throw error
         }
         return bundle
@@ -220,6 +270,10 @@ public struct VMBundle: Sendable, Hashable {
         }
         let effectiveRole = role ?? Self.processRole
         if effectiveRole != .operation {
+            if isInstalling {
+                close(fd)
+                throw VitrineError.backend("VM \(name) was never finished being created (its creation was interrupted); remove it and create it again")
+            }
             let recovery: URL?
             do {
                 recovery = try FileManager.default.contentsOfDirectory(at: url, includingPropertiesForKeys: nil)
@@ -236,7 +290,22 @@ public struct VMBundle: Sendable, Hashable {
         let text = "\(getpid()) \(effectiveRole.rawValue)\n"
         ftruncate(fd, 0)
         _ = text.withCString { pwrite(fd, $0, strlen($0), 0) }
+        // Holding the lock means no live Vitrine process owns the VM: a QEMU still running for
+        // it is an orphan, and must not keep the disk open under whatever comes next.
+        if let note = QEMUOrphan.reap(bundle: self, id: (try? loadConfig())?.id, inspector: QEMUOrphan.lockInspector) {
+            appendToLog(note)
+        }
         BundleLocks.shared.set(fd, for: key)
+    }
+
+    /// A line in the VM's log (same format as the controller's).
+    func appendToLog(_ line: String) {
+        let text = Data("\(ISO8601DateFormatter().string(from: Date())) \(line)\n".utf8)
+        if let h = try? FileHandle(forWritingTo: logURL) {
+            _ = try? h.seekToEnd(); try? h.write(contentsOf: text); try? h.close()
+        } else {
+            try? text.write(to: logURL)
+        }
     }
 
     /// Runs file edits under the exclusive bundle lock. Running VMs must edit through their owner.
@@ -339,12 +408,15 @@ public enum VMLibrary {
         root.appendingPathComponent("\(name).\(VMBundle.pathExtension)", isDirectory: true)
     }
 
-    public static func list() -> [VMBundle] {
+    /// The library's VMs. Bundles still being created (or whose creation was interrupted) are
+    /// left out unless `includingInstalling`.
+    public static func list(includingInstalling: Bool = false) -> [VMBundle] {
         let fm = FileManager.default
         guard let items = try? fm.contentsOfDirectory(at: root, includingPropertiesForKeys: nil) else { return [] }
         return items.filter { $0.pathExtension == VMBundle.pathExtension }
             .sorted { $0.lastPathComponent.localizedStandardCompare($1.lastPathComponent) == .orderedAscending }
             .map(VMBundle.init(url:))
+            .filter { includingInstalling || !$0.isInstalling }
     }
 
     /// Finds a VM by bundle name or by path.
@@ -391,3 +463,4 @@ final class BundleLocks: @unchecked Sendable {
     func set(_ fd: Int32, for key: String) { mutex.lock(); fds[key] = fd; mutex.unlock() }
     func take(_ key: String) -> Int32? { mutex.lock(); defer { mutex.unlock() }; return fds.removeValue(forKey: key) }
 }
+

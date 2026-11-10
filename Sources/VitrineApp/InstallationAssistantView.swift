@@ -294,17 +294,12 @@ struct InstallationAssistantView: View {
                 try Task.checkCancellation()
                 phase = String(localized: "Installing macOS…"); detail = String(localized: "This usually takes 10–20 minutes."); progress = 0
                 let image = try await RestoreImages.load(ipsw)
-                let installer = MacInstaller()
-                let bundle = try installer.createBundle(options: opts, restoreImage: image)
-                do {
-                    try await installer.install(bundle: bundle, ipsw: ipsw) { p in
-                        if case .installing(let f) = p { progress = f }
-                    }
-                } catch {
-                    try? FileManager.default.removeItem(at: bundle.url)
-                    throw error
+                // Locked and hidden from the library until installed; Cancel stops the installer.
+                let bundle = try await MacInstaller().createAndInstall(options: opts, restoreImage: image, ipsw: ipsw) { p in
+                    if case .installing(let f) = p { progress = f }
                 }
                 model.refresh()
+                try Task.checkCancellation() // installed, but the user cancelled: don't start it
                 dismissWindow(id: "assistant")
                 model.start(bundle)
                 openWindow(id: "vm", value: bundle.url.path)
