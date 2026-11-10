@@ -53,6 +53,23 @@ public enum AgentInstaller {
         /// different machine answering on a recycled IP is refused instead of receiving the password.
         public var knownHosts: URL? = nil
         public var hostKeyAlias: String? = nil
+
+        /// A username ssh can't read as an option or a different destination: ASCII letters,
+        /// digits, '_', '.', '-', not starting with '-'.
+        static func isSafeUsername(_ s: String) -> Bool {
+            guard let first = s.unicodeScalars.first, first != "-" else { return false }
+            return s.unicodeScalars.allSatisfy {
+                $0.isASCII && (CharacterSet.alphanumerics.contains($0) || "_.-".unicodeScalars.contains($0))
+            }
+        }
+
+        /// An IPv4/IPv6 address or host name: no option-like leading '-', no spaces or separators.
+        static func isSafeHost(_ s: String) -> Bool {
+            guard let first = s.unicodeScalars.first, first != "-" else { return false }
+            return s.unicodeScalars.allSatisfy {
+                $0.isASCII && (CharacterSet.alphanumerics.contains($0) || ".:-%".unicodeScalars.contains($0))
+            }
+        }
     }
 
     public static func target(for bundle: VMBundle) throws -> Target {
@@ -62,6 +79,9 @@ public enum AgentInstaller {
         }
         guard let account = config.account else {
             throw VitrineError.invalidConfig("VM has no provisioned account; install the agent manually from the Vitrine Tools share")
+        }
+        guard Target.isSafeUsername(account.username) else {
+            throw VitrineError.invalidConfig("unsupported guest username \(account.username.debugDescription)")
         }
         guard let password = GuestCredentialStore.password(in: bundle) else {
             throw VitrineError.invalidConfig("no stored password for \(account.username)")
@@ -77,6 +97,7 @@ public enum AgentInstaller {
         guard let ip = bundle.guestIPAddress(config) else {
             throw VitrineError.backend("guest has no IP address bound to its MAC or agent yet — wait for it to finish booting")
         }
+        guard Target.isSafeHost(ip) else { throw VitrineError.backend("unusable guest address \(ip.debugDescription)") }
         return Target(host: ip, username: account.username, password: password, knownHosts: knownHosts, hostKeyAlias: alias)
     }
 
@@ -443,7 +464,20 @@ public enum AgentInstaller {
     /// Runs `command` in the guest with `stdin` as its input; returns what it printed (stdout and stderr).
     @discardableResult
     static func run(_ t: Target, command: String, stdin: Data? = nil, timeout: TimeInterval = 600) throws -> String {
-        try ssh(t, tool: "/usr/bin/ssh", ["-p", "\(t.port)", "\(t.username)@\(t.host)", command], stdin: stdin, timeout: timeout)
+        try ssh(t, tool: "/usr/bin/ssh", runArguments(t, command: command), stdin: stdin, timeout: timeout)
+    }
+
+    // The destination always follows "--", so neither it nor a path can be read as an option.
+    static func runArguments(_ t: Target, command: String) -> [String] {
+        ["-p", "\(t.port)", "-l", t.username, "--", t.host, command]
+    }
+
+    static func uploadArguments(_ t: Target, _ local: URL, to remote: String) -> [String] {
+        ["-r", "-P", "\(t.port)", "--", local.path, "\(t.username)@\(t.host):\(remote)"]
+    }
+
+    static func downloadArguments(_ t: Target, _ remote: String, to local: URL) -> [String] {
+        ["-r", "-P", "\(t.port)", "--", "\(t.username)@\(t.host):\(remote)", local.path]
     }
 
     /// A command that writes `script` to a temporary file in a macOS or Linux guest and runs it with
@@ -467,15 +501,13 @@ public enum AgentInstaller {
     /// Copies a file or folder into the guest with scp (same options and password as `run`).
     @discardableResult
     static func upload(_ t: Target, _ local: URL, to remote: String, timeout: TimeInterval = 600) throws -> String {
-        try ssh(t, tool: "/usr/bin/scp", ["-r", "-P", "\(t.port)", local.path, "\(t.username)@\(t.host):\(remote)"],
-                stdin: nil, timeout: timeout)
+        try ssh(t, tool: "/usr/bin/scp", uploadArguments(t, local, to: remote), stdin: nil, timeout: timeout)
     }
 
     /// Copies a file or folder from the guest with scp.
     @discardableResult
     static func download(_ t: Target, _ remote: String, to local: URL, timeout: TimeInterval = 600) throws -> String {
-        try ssh(t, tool: "/usr/bin/scp", ["-r", "-P", "\(t.port)", "\(t.username)@\(t.host):\(remote)", local.path],
-                stdin: nil, timeout: timeout)
+        try ssh(t, tool: "/usr/bin/scp", downloadArguments(t, remote, to: local), stdin: nil, timeout: timeout)
     }
 
     /// A tar stream of `item` (as one entry at the archive's root), for `tar -xf -` in the guest.
@@ -492,6 +524,41 @@ public enum AgentInstaller {
         return archive
     }
 
+    /// Options for every ssh/scp run. `-F /dev/null` keeps the user's ~/.ssh/config out (it could
+    /// forward their SSH agent, X11 or ports into the guest, or add a ProxyCommand), and the
+    /// forwarding options repeat that in case a system-wide config sets them.
+    static let maxOutputBytes = 16 << 20
+
+    static func sshArguments(_ t: Target, tool: String, _ arguments: [String]) -> [String] {
+        var hostKeyOptions = ["-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null"]
+        if let known = t.knownHosts, let alias = t.hostKeyAlias {
+            hostKeyOptions = ["-o", "StrictHostKeyChecking=accept-new", "-o", "UserKnownHostsFile=\"\(known.path)\"", // quoted: the path has spaces
+                              "-o", "HostKeyAlias=\(alias)"]
+        }
+        return ["-F", "/dev/null"] + hostKeyOptions + [
+            "-o", "LogLevel=ERROR",
+            "-o", "ConnectTimeout=10", "-o", "ServerAliveInterval=15", "-o", "ServerAliveCountMax=4",
+            "-o", "PubkeyAuthentication=no", "-o", "IdentityAgent=none",
+            "-o", "PreferredAuthentications=password,keyboard-interactive",
+            "-o", "ForwardAgent=no", "-o", "ForwardX11=no", "-o", "ClearAllForwardings=yes",
+            "-o", "PermitLocalCommand=no",
+        ] + arguments
+    }
+
+    /// A minimal environment: nothing from the user's shell reaches ssh beyond what it needs to
+    /// run (no SSH_AUTH_SOCK, no locale variables that SendEnv could pass on, no DYLD_*).
+    static func sshEnvironment(askpass: String, password: String,
+                               base: [String: String] = ProcessInfo.processInfo.environment) -> [String: String] {
+        var env: [String: String] = [:]
+        for key in ["HOME", "USER", "LOGNAME", "TMPDIR"] { env[key] = base[key] }
+        env["PATH"] = "/usr/bin:/bin:/usr/sbin:/sbin"
+        env["SSH_ASKPASS"] = askpass
+        env["SSH_ASKPASS_REQUIRE"] = "force"
+        env["DISPLAY"] = base["DISPLAY"] ?? ":0"
+        env["VITRINE_SSH_PASSWORD"] = password
+        return env
+    }
+
     /// Runs ssh or scp (`tool`) with the password from an askpass helper (never in argv) and the
     /// VM's pinned host key, writing `stdin` to it, under a hard deadline for the whole operation.
     private static func ssh(_ t: Target, tool: String, _ arguments: [String], stdin: Data?,
@@ -503,21 +570,8 @@ public enum AgentInstaller {
 
         let ssh = Process()
         ssh.executableURL = URL(fileURLWithPath: tool)
-        var hostKeyOptions = ["-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null"]
-        if let known = t.knownHosts, let alias = t.hostKeyAlias {
-            hostKeyOptions = ["-o", "StrictHostKeyChecking=accept-new", "-o", "UserKnownHostsFile=\"\(known.path)\"", // quoted: the path has spaces
-                              "-o", "HostKeyAlias=\(alias)"]
-        }
-        ssh.arguments = hostKeyOptions + ["-o", "LogLevel=ERROR",
-                         "-o", "ConnectTimeout=10", "-o", "ServerAliveInterval=15", "-o", "ServerAliveCountMax=4",
-                         "-o", "PubkeyAuthentication=no",
-                         "-o", "PreferredAuthentications=password,keyboard-interactive"] + arguments
-        var env = ProcessInfo.processInfo.environment
-        env["SSH_ASKPASS"] = tmp.path
-        env["SSH_ASKPASS_REQUIRE"] = "force"
-        env["DISPLAY"] = env["DISPLAY"] ?? ":0"
-        env["VITRINE_SSH_PASSWORD"] = t.password
-        ssh.environment = env
+        ssh.arguments = sshArguments(t, tool: tool, arguments)
+        ssh.environment = sshEnvironment(askpass: tmp.path, password: t.password)
         let outPipe = Pipe(), inPipe = Pipe()
         ssh.standardOutput = outPipe
         ssh.standardError = outPipe
@@ -533,7 +587,19 @@ public enum AgentInstaller {
             try? inPipe.fileHandleForWriting.write(contentsOf: payload) // throws (not SIGPIPE/NSException) if ssh exited early
             try? inPipe.fileHandleForWriting.close()
         }
-        let output = String(decoding: outPipe.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+        // Bounded: a guest's sshd could stream forever and grow the app's memory until the deadline.
+        var collected = Data()
+        let reader = outPipe.fileHandleForReading
+        while case let chunk = reader.availableData, !chunk.isEmpty {
+            if collected.count + chunk.count > maxOutputBytes {
+                collected.append(chunk.prefix(maxOutputBytes - collected.count))
+                if ssh.isRunning { ssh.terminate() }
+                ssh.waitUntilExit()
+                throw SSHError.commandFailed("ssh \(t.username)@\(t.host): output exceeded \(maxOutputBytes >> 20) MB")
+            }
+            collected.append(chunk)
+        }
+        let output = String(decoding: collected, as: UTF8.self)
         ssh.waitUntilExit()
         guard ssh.terminationStatus == 0 else {
             let message = "ssh \(t.username)@\(t.host) failed (\(ssh.terminationStatus)): \(output.suffix(400))"

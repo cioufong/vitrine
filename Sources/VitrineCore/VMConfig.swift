@@ -388,8 +388,8 @@ public extension VMConfig {
         }
         if let account {
             if !account.username.allSatisfy({ $0.isLetter || $0.isNumber || $0 == "_" || $0 == "-" || $0 == "." })
-                || account.username.isEmpty {
-                throw VitrineError.invalidConfig("username may only contain letters, digits, '_', '-', '.'")
+                || account.username.isEmpty || account.username.hasPrefix("-") {
+                throw VitrineError.invalidConfig("username may only contain letters, digits, '_', '-', '.' and must not start with '-'")
             }
         }
         if guestOS == .macOS && (boot != nil || features.rosetta) {
