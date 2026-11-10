@@ -344,6 +344,24 @@ public enum VMLibrary {
         }
         return VMBundle(url: url)
     }
+
+    /// Finds a VM by bundle name only, for callers that must not open a bundle elsewhere (the MCP
+    /// server: a bundle an agent wrote to ~/Downloads could share the Mac's home). The name must be
+    /// a valid VM name, and the bundle, symlinks resolved, must be directly in the library.
+    public static func findByName(_ name: String, in library: URL = root) throws -> VMBundle {
+        guard VMCreationJob.isValidVMName(name) else {
+            throw VitrineError.invalidConfig("\(name) is not a VM name (letters, digits, . - _; no paths)")
+        }
+        let url = library.appendingPathComponent("\(name).\(VMBundle.pathExtension)", isDirectory: true)
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            throw VitrineError.fileNotFound("no VM named \(name) in \(library.path)")
+        }
+        let parent = url.resolvingSymlinksInPath().deletingLastPathComponent().standardizedFileURL.path
+        guard parent == library.resolvingSymlinksInPath().standardizedFileURL.path else {
+            throw VitrineError.invalidConfig("the VM \(name) is not in \(library.path)")
+        }
+        return VMBundle(url: url)
+    }
 }
 
 /// Lock descriptors held by this process, keyed by lock-file path. (flock locks belong to an open

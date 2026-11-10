@@ -134,20 +134,63 @@ enum MCPServer {
     }
 
     /// Throws unless `path` is outside the protected locations, listed with `vitrinectl mcp allow`,
-    /// or approved by the user just now.
-    static func checkPath(_ path: String, _ use: String) throws {
+    /// or approved by the user just now (then returns true). A `destination` is checked by itself,
+    /// not for symlinks below it (pull_file checks each item it writes).
+    @discardableResult
+    static func checkPath(_ path: String, _ use: String, destination: Bool = false) throws -> Bool {
         let policy = MCPPathPolicy()
-        guard let root = policy.protectedRoot(for: path) else { return }
-        let resolved = MCPPathPolicy.resolve(path)
-        if askUser("An AI agent wants to \(use) \(resolved), which is in a protected location (\(root)). Allow this once?") {
+        guard let root = destination ? policy.protectedRoot(forDestination: path) : policy.protectedRoot(for: path) else {
+            return false
+        }
+        try confirm(MCPPathPolicy.resolve(path), in: root, use)
+        return true
+    }
+
+    /// Asks the user to allow `use` of the protected `resolved` once (`more` other paths with it);
+    /// throws when they don't. A folder that holds protected locations (`~`, `~/Library`, `/`) is
+    /// never asked about: only `vitrinectl mcp allow` opens it.
+    static func confirm(_ resolved: String, in root: String, _ use: String, more: Int = 0) throws {
+        let also = more > 0 ? " (and \(more) more protected path\(more == 1 ? "" : "s"))" : ""
+        let ancestor = !MCPPathPolicy.isInside(resolved, root)
+        let relation = ancestor ? "contains a protected location (\(root))" : "is in a protected location (\(root))"
+        if !ancestor, askUser("An AI agent wants to \(use) \(resolved)\(also), which \(relation). Allow this once?") {
             return
         }
         throw VitrineError.invalidConfig("""
-            \(resolved) is in a protected location (\(root)): Vitrine's VM library, credentials, keychains \
+            \(resolved)\(also) \(relation): Vitrine's VM library, credentials, keychains \
             and places that run code at login are off limits to the MCP file tools. Ask the user whether \
             this is intended; they can allow it with `vitrinectl mcp allow '\(resolved)'`\
-            \(clientCanElicit ? " or approve the request in their MCP client" : ""). Do not look for another way in.
+            \(clientCanElicit && !ancestor ? " or approve the request in their MCP client" : ""). Do not look for another way in.
             """)
+    }
+
+    /// pull_file: scp into a fresh private folder, check where every item would land, then move
+    /// it all into place. Approving a protected `local` covers what lands below it in the same
+    /// protected location; anything else protected is asked about (or refused) again.
+    static func pullFile(_ b: VMBundle, remote: String, local: URL) throws {
+        let use = "write a file from the VM \(b.name) to"
+        let approved = try checkPath(local.path, use, destination: true) ? MCPPathPolicy.resolve(local.path) : nil
+        var template = Array(FileManager.default.temporaryDirectory.appendingPathComponent("vitrine-pull-XXXXXX").path.utf8CString)
+        guard let made = mkdtemp(&template) else { throw VitrineError.io("can't create a staging folder") }  // mode 0700
+        let staging = URL(fileURLWithPath: String(cString: made), isDirectory: true)
+        defer {
+            // Folders the guest sent read-only would keep their contents from being deleted.
+            for case let item as String in FileManager.default.enumerator(atPath: staging.path) ?? NSEnumerator() {
+                let url = staging.appendingPathComponent(item)
+                if (try? FileManager.default.attributesOfItem(atPath: url.path))?[.type] as? FileAttributeType == .typeDirectory {
+                    try? FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: url.path)
+                }
+            }
+            try? FileManager.default.removeItem(at: staging)
+        }
+        try blocking { try await AgentInstaller.pull(in: b, remote: remote, local: staging) }
+        let policy = MCPPathPolicy()
+        let plan = try policy.planDownload(staging: staging, to: local)
+        let refused = MCPPathPolicy.needingApproval(plan, approved: approved)
+        if let first = refused.first, let root = first.protectedRoot {
+            try confirm(MCPPathPolicy.resolve(first.destination.path), in: root, use, more: refused.count - 1)
+        }
+        try policy.place(plan)
     }
 
     static let instructions = """
@@ -178,7 +221,8 @@ enum MCPServer {
         }
         func number(_ key: String) -> Double? { (values[key] as? NSNumber)?.doubleValue }
         func bool(_ key: String) -> Bool { values[key] as? Bool ?? false }
-        func vm() throws -> VMBundle { try VMLibrary.find(try string("name")) }
+        /// The VM named `name` in the library; unlike the CLI, never a bundle path.
+        func vm() throws -> VMBundle { try VMLibrary.findByName(try string("name")) }
     }
 
     struct Tool {
@@ -397,8 +441,7 @@ enum MCPServer {
             let b = try a.vm()
             let local = URL(fileURLWithPath: (try a.string("local_path") as NSString).expandingTildeInPath).standardizedFileURL
             let remote = try a.string("guest_path")
-            try checkPath(local.path, "write a file from the VM \(b.name) to")
-            try blocking { try await AgentInstaller.pull(in: b, remote: remote, local: local) }
+            try pullFile(b, remote: remote, local: local)
             return [text("copied \(b.name):\(remote) to \(local.path)")]
         },
         Tool(name: "serial_console", title: "Serial console",
