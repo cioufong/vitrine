@@ -40,6 +40,17 @@ cp /usr/bin/true "$T/tool"
 check "ad-hoc signing with entitlements" \
   'codesign -d --entitlements - "$T/tool" 2>/dev/null | grep -q com.apple.security.virtualization'
 
+# The bridge helper, signed the way build-app.sh signs it: the install script's requirement names
+# identifier vitrine-bridged, which the linker's own signature doesn't carry. Also with the opt-in,
+# which only changes bundles.
+mkdir -p "$T/helper"
+lipo /usr/bin/true -thin arm64e -output "$T/helper/vitrine-bridged"
+(VITRINE_ADHOC_STABLE_REQUIREMENT=1; source scripts/lib/signing.sh
+ vitrine_sign "$T/helper/vitrine-bridged" "$T/adhoc.plist" "$SIGN_IDENTITY" --identifier vitrine-bridged)
+check "the bridge helper is signed as vitrine-bridged and passes an identifier requirement" \
+  'codesign -dv "$T/helper/vitrine-bridged" 2>&1 | grep -q "^Identifier=vitrine-bridged$" &&
+   codesign --verify --strict -R="identifier \"vitrine-bridged\"" "$T/helper/vitrine-bridged" 2>/dev/null'
+
 # Designated requirements of ad-hoc bundles: by default the exact code (cdhash); with the opt-in,
 # only the bundle identifier. The opt-in also works from a local settings file.
 bundle() {

@@ -105,8 +105,14 @@ guard let uidText = option("--user"), let owner = uid_t(uidText), owner != 0 els
 }
 guard getuid() == 0 else { log("must run as root (it is installed as a LaunchDaemon)"); exit(1) }
 let dir = option("--dir") ?? "/var/run/vitrine"
-mkdir(dir, 0o755)
-chmod(dir, 0o755)
+do {
+    // Root makes sockets here and gives them away: a symlink or someone else's directory would let
+    // that user steer where they go.
+    try SocketDirectory.prepare(dir)
+} catch {
+    log("refusing to serve: \(error)")
+    exit(1)
+}
 
 var servers: [String: Server] = [:]
 /// Follows the interfaces macOS can bridge (USB/Thunderbolt adapters come and go).

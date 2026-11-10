@@ -32,19 +32,4 @@ public enum BuildLayout {
                                 where isValid: (URL) -> Bool = { FileManager.default.fileExists(atPath: $0.path) }) -> URL? {
         distRoots().map { $0.appendingPathComponent(relativePath) }.first(where: isValid)
     }
-
-    /// A file in the app's Resources, or (development builds) in the repository's Resources folder.
-    public static func resource(named name: String) -> URL? {
-        if let url = Bundle.main.url(forResource: (name as NSString).deletingPathExtension,
-                                     withExtension: (name as NSString).pathExtension) { return url }
-        var dir = Bundle.main.executableURL?.deletingLastPathComponent()
-        for _ in 0..<5 {
-            guard let d = dir else { break }
-            for candidate in [d.appendingPathComponent("Resources/\(name)"), d.appendingPathComponent("../Resources/\(name)")] {
-                if FileManager.default.fileExists(atPath: candidate.path) { return candidate.standardizedFileURL }
-            }
-            dir = d.deletingLastPathComponent()
-        }
-        return nil
-    }
 }
