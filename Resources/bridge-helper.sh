@@ -5,11 +5,19 @@
 #   bridge-helper.sh install <path to vitrine-bridged> <uid> <code requirement>   (as root)
 #   bridge-helper.sh uninstall                                                     (as root)
 #   bridge-helper.sh verify <file> <code requirement>
+#   bridge-helper.sh stage <file> <directory> <code requirement>                   (tests: install's
+#                                                                                   copy-and-check step)
 #
-# The binary is copied to a root-owned location first and its signature checked there, against the
-# requirement the caller built (its cdhash, and the caller's Team ID when it has one): the source
-# lives in the user-writable app bundle, so it could change between any earlier check and the copy.
-# The daemon never runs a file the user can modify.
+# Vitrine does not run this file: BridgeHelperScript.swift carries the same text, compiled into
+# Vitrine (a test keeps the two identical), and passes it to the administrator prompt. The app
+# bundle is writable by its user, so nothing root runs may be read from it.
+#
+# The binary is copied, without following a symlink, into a fresh directory only root can enter,
+# and its signature checked there against the requirement the caller built (identifier
+# vitrine-bridged, its cdhash, and the caller's Team ID when it has one): the source lives in the
+# user-writable app bundle, so it could change between any earlier check and the copy. The copy
+# stays root-only until it passes, then becomes the installed binary. The daemon never runs a file
+# the user can modify.
 set -eu
 
 LABEL=com.vitrine.bridged
@@ -25,9 +33,38 @@ verify() { # file requirement
     }
 }
 
+# stage <file> <directory> <requirement>: sets $staged to a verified copy of <file> in a new
+# root-only directory under <directory> ($staged_dir, removed when the script exits).
+stage() {
+    # Advisory (the source can still change after this); the copy is what gets checked.
+    if [ -L "$1" ] || [ ! -f "$1" ]; then
+        echo "bridge-helper.sh: $1 is not a regular file; not installing" >&2
+        exit 1
+    fi
+    staged_dir=$(mktemp -d "$2/.vitrine-bridged.XXXXXX")
+    trap 'rm -rf "$staged_dir"' EXIT
+    chmod 700 "$staged_dir"
+    staged=$staged_dir/vitrine-bridged
+    # -R copies a symlink as a symlink and a FIFO as a FIFO instead of following or reading them;
+    # -X leaves extended attributes behind.
+    cp -RX "$1" "$staged"
+    if [ -L "$staged" ] || [ ! -f "$staged" ]; then
+        echo "bridge-helper.sh: $1 is not a regular file; not installing" >&2
+        exit 1
+    fi
+    chmod -N "$staged" 2>/dev/null || true
+    chmod 700 "$staged"
+    verify "$staged" "$3"
+}
+
 case "${1:-}" in
 verify)
     verify "${2:?file}" "${3:?code requirement}"
+    ;;
+stage)
+    stage "${2:?file}" "${3:?directory}" "${4:?code requirement}"
+    trap - EXIT
+    echo "$staged"
     ;;
 install)
     need_root
@@ -35,19 +72,14 @@ install)
     uid=${3:?uid}
     req=${4:?code requirement}
     case "$uid" in '' | *[!0-9]* | 0) echo "bridge-helper.sh: bad uid $uid" >&2; exit 1 ;; esac
-    [ -f "$src" ] || { echo "bridge-helper.sh: $src is missing" >&2; exit 1; }
     mkdir -p /Library/PrivilegedHelperTools
     chown root:wheel /Library/PrivilegedHelperTools
     chmod 755 /Library/PrivilegedHelperTools
-    staged=$(mktemp /Library/PrivilegedHelperTools/.vitrine-bridged.XXXXXX)
-    trap 'rm -f "$staged"' EXIT
-    cp "$src" "$staged"
+    stage "$src" /Library/PrivilegedHelperTools "$req"
     chown root:wheel "$staged"
     chmod 755 "$staged"
-    verify "$staged" "$req"
     launchctl bootout "system/$LABEL" 2>/dev/null || true
     mv -f "$staged" "$DEST"
-    trap - EXIT
     cat > "$PLIST" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -80,7 +112,7 @@ uninstall)
     echo "removed $LABEL"
     ;;
 *)
-    echo "usage: bridge-helper.sh install <vitrine-bridged> <uid> <requirement> | uninstall | verify <file> <requirement>" >&2
+    echo "usage: bridge-helper.sh install <vitrine-bridged> <uid> <requirement> | uninstall | verify <file> <requirement> | stage <file> <dir> <requirement>" >&2
     exit 2
     ;;
 esac

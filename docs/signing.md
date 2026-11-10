@@ -120,15 +120,28 @@ refuse to launch the resulting agent.
 
 Installing bridged networking copies `vitrine-bridged` from the app bundle to
 `/Library/PrivilegedHelperTools` and runs it as root. The bundle is writable by you, and by anything
-running as you, so the install script never runs a file from it. Vitrine passes the script's text
-to the administrator prompt, the script copies the binary to a root-owned file, and only then checks
-that copy with `codesign --verify -R` against a requirement Vitrine built beforehand:
+running as you, so nothing root runs comes from it unchecked. The install script
+(`Resources/bridge-helper.sh`) is compiled into Vitrine rather than shipped in the bundle, and Vitrine
+passes its text to the administrator prompt. The script copies the binary, without following a
+symlink, into a new directory only root can enter, and only then checks that copy with
+`codesign --verify -R` against a requirement Vitrine built beforehand. The copy stays root-only until
+it passes; then it is made executable for everyone and moved into place.
 
-- **Ad-hoc builds** (the default): the binary's cdhash. Root installs exactly the file Vitrine
-  looked at; a swap between the check and the copy, or a damaged file, is refused. There is no
-  identity to anchor to, though: anything running as you could replace and re-sign the whole app.
+- **Ad-hoc builds** (the default): identifier `vitrine-bridged` and the binary's cdhash. Root
+  installs exactly the file Vitrine looked at; a swap between the check and the copy, or a damaged
+  file, is refused. There is no identity to anchor to, though: anything running as you could
+  replace and re-sign the whole app.
 - **Builds signed with `VITRINE_SIGN_IDENTITY`**: also `anchor apple generic` and the Team ID
   Vitrine itself is signed with, so the helper must come from your team.
+
+build-app.sh signs the helper with `--identifier vitrine-bridged`. The binary a plain `swift build`
+leaves in `.build` carries the linker's identifier (`vitrine-bridged-<hash>`), so installing from a
+development build fails with "not signed as vitrine-bridged"; use build-app.sh's app.
+`VITRINE_ADHOC_STABLE_REQUIREMENT` doesn't affect any of this: it only changes bundles' designated
+requirements, and the install check uses its own.
+
+The daemon keeps its sockets in `/var/run/vitrine` and refuses to start unless that is a real
+directory owned by root (a symlink or file there is replaced; group and world write are removed).
 
 `vitrine-bridged` must be a single-architecture binary (build-app.sh builds this Mac's only):
 each slice of a universal binary has its own cdhash.

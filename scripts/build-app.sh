@@ -18,9 +18,9 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN/VitrineApp" "$APP/Contents/MacOS/Vitrine"
 cp "$BIN/vitrinectl" "$APP/Contents/MacOS/vitrinectl"
 cp "$BIN/VitrineAppProxy" "$APP/Contents/MacOS/VitrineAppProxy" # template for guest-app Dock icons/launchers
-# Bridged networking: the helper is copied to a root-owned place by bridge-helper.sh when installed.
+# Bridged networking: the helper is copied to a root-owned place when installed, by the script in
+# Resources/bridge-helper.sh, which is compiled into Vitrine (BridgeHelperScript.swift) and not bundled.
 cp "$BIN/vitrine-bridged" "$APP/Contents/MacOS/vitrine-bridged"
-cp Resources/bridge-helper.sh "$APP/Contents/Resources/"
 cp -R dist/VitrineAgent.app "$APP/Contents/Resources/"
 if ./scripts/build-linux-agent.sh >/dev/null 2>&1; then cp -R dist/linux-agent "$APP/Contents/Resources/"; else echo "warning: Linux agent build failed (Go missing?), not bundled" >&2; fi
 if ./scripts/build-windows-agent.sh >/dev/null 2>&1; then cp -R dist/windows-agent "$APP/Contents/Resources/"; else echo "warning: Windows agent build failed (Go missing?), not bundled" >&2; fi
@@ -77,6 +77,7 @@ vitrine_entitlements Resources/Vitrine.entitlements "$ENT/app.plist" restricted
 if [ -n "${VITRINE_PROVISIONING_PROFILE:-}" ]; then cp "$VITRINE_PROVISIONING_PROFILE" "$APP/Contents/embedded.provisionprofile"; fi
 vitrine_sign "$APP/Contents/MacOS/vitrinectl" "$ENT/tools.plist"
 vitrine_sign "$APP/Contents/MacOS/VitrineAppProxy"
-vitrine_sign "$APP/Contents/MacOS/vitrine-bridged" "$ENT/tools.plist"
+# The install script's requirement names this identifier (the linker's has a hash appended).
+vitrine_sign "$APP/Contents/MacOS/vitrine-bridged" "$ENT/tools.plist" "$SIGN_IDENTITY" --identifier vitrine-bridged
 vitrine_sign "$APP" "$ENT/app.plist"
 echo "$PWD/$APP"
