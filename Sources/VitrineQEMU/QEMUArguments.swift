@@ -125,7 +125,9 @@ public enum QEMUArguments {
         a += ["-device", "qemu-xhci,id=xhci,p2=15,p3=15"]
         if let media = config.installMedia {
             let iso = bundle.resolve(media).path
-            a += ["-drive", "id=cd0,if=none,media=cdrom,readonly=on,file=\(qemuEscape(iso))"]
+            // format=raw: probing would let an "ISO" that is really a qcow2/VMDK pull in a host file
+            // (backing file, extent) for the guest to read.
+            a += ["-drive", "id=cd0,if=none,media=cdrom,format=raw,readonly=on,file=\(qemuEscape(iso))"]
             if arch == .aarch64 && windows {
                 a += ["-device", "virtio-scsi-pci,id=scsi0", "-device", "scsi-cd,bus=scsi0.0,drive=cd0,bootindex=0"]
             } else if arch == .aarch64 {
@@ -137,7 +139,7 @@ public enum QEMUArguments {
 
         for (i, media) in (config.extraMedia ?? []).enumerated() {
             let iso = bundle.resolve(media).path
-            a += ["-drive", "id=cdx\(i),if=none,media=cdrom,readonly=on,file=\(qemuEscape(iso))"]
+            a += ["-drive", "id=cdx\(i),if=none,media=cdrom,format=raw,readonly=on,file=\(qemuEscape(iso))"]
             a += arch == .aarch64 ? ["-device", "usb-storage,bus=xhci.0,drive=cdx\(i),removable=on"]
                                   : ["-device", "ide-cd,drive=cdx\(i),bus=ide.\(i + 1)"]
         }
@@ -150,7 +152,7 @@ public enum QEMUArguments {
         if !windows {
             for (i, share) in config.shares.enumerated() {
                 let ro = share.readOnly ? ",readonly=on" : ""
-                a += ["-fsdev", "local,id=fs\(i),path=\(bundle.resolve(share.hostPath).path),security_model=none\(ro)",
+                a += ["-fsdev", "local,id=fs\(i),path=\(qemuEscape(bundle.resolve(share.hostPath).path)),security_model=none\(ro)",
                       "-device", "virtio-9p-pci,fsdev=fs\(i),mount_tag=\(share.mountTag)"]
             }
         }
@@ -188,8 +190,11 @@ public enum QEMUArguments {
         // with the NetKVM driver from the unattended-setup seed disc. Host-only is the same network
         // with `restrict=on`: no route out, while forwarded ports and the Samba share keep working.
         let nic = (windows && arch == .x86_64) ? "e1000e" : "virtio-net-pci"
+        // validate() rejects malformed MACs; never splice an unchecked one into -device (a comma would
+        // add device properties). Without one QEMU assigns its own.
+        let mac = VMConfig.NetworkConfig.isMACAddress(config.network.macAddress) ? ",mac=\(config.network.macAddress)" : ""
         if config.network.isConnected, let netdev = options.netdev {
-            a += ["-netdev", "\(netdev),id=net0", "-device", "\(nic),netdev=net0,mac=\(config.network.macAddress)"]
+            a += ["-netdev", "\(netdev),id=net0", "-device", "\(nic),netdev=net0\(mac)"]
         } else if config.network.isConnected {
             var fwd = config.network.mode == .hostOnly ? ",restrict=on" : ""
             fwd += options.agentTCPPort.map { ",hostfwd=tcp:127.0.0.1:\($0)-:\(agentGuestTCPPort)" } ?? ""
@@ -204,9 +209,9 @@ public enum QEMUArguments {
             } ?? ""
             a += ["-netdev", "user,id=net0\(fwd)"]
             if nic == "usb-net" {
-                a += ["-device", "usb-net,bus=xhci.0,netdev=net0,mac=\(config.network.macAddress)"]
+                a += ["-device", "usb-net,bus=xhci.0,netdev=net0\(mac)"]
             } else {
-                a += ["-device", "\(nic),netdev=net0,mac=\(config.network.macAddress)"]
+                a += ["-device", "\(nic),netdev=net0\(mac)"]
             }
         }
 

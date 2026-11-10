@@ -51,6 +51,26 @@ final class VMConfigTests: XCTestCase {
         }
     }
 
+    func testMACAddressMustBeSixHexOctets() {
+        func check(_ mac: String) throws {
+            var c = makeConfig()
+            c.network.macAddress = mac
+            try c.validate(hostCPUs: 8, hostMemoryMiB: 16384)
+        }
+        for ok in ["52:54:00:aa:bb:cc", "AA:BB:CC:DD:EE:01", "02:00:00:00:00:01", randomMACAddress()] {
+            XCTAssertNoThrow(try check(ok), ok)
+            XCTAssertTrue(VMConfig.NetworkConfig.isMACAddress(ok), ok)
+        }
+        // The address is spliced into QEMU's -device option: a comma would add device properties.
+        for bad in ["52:54:00:aa:bb:cc,romfile=/Users/x/.ssh/id_ed25519", "52:54:00:aa:bb", "52:54:00:aa:bb:cc:dd",
+                    "52-54-00-aa-bb-cc", "5:54:00:aa:bb:cc", "052:54:00:aa:bb:cc", "52:54:00:aa:bb:gg",
+                    "52:54:00:aa:bb:cc ", " 52:54:00:aa:bb:cc", "", "52:54:00:aa:bb:c\u{0661}", "５2:54:00:aa:bb:cc",
+                    "52:54:00:aa:bb:cc\n"] {
+            XCTAssertThrowsError(try check(bad), bad)
+            XCTAssertFalse(VMConfig.NetworkConfig.isMACAddress(bad), bad)
+        }
+    }
+
     func testMACAddressIsLocallyAdministeredUnicast() {
         for _ in 0..<50 {
             let mac = randomMACAddress()

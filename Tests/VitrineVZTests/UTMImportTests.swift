@@ -109,6 +109,26 @@ final class UTMImportTests: XCTestCase {
         XCTAssertEqual(c.network.macAddress, "aa:bb:cc:dd:ee:03")
     }
 
+    /// The MAC lands in QEMU's -device option: one carrying extra properties is replaced, not copied.
+    func testInvalidMACAddressIsReplacedWithARandomOne() throws {
+        for (i, bad) in ["52:54:00:aa:bb:cc,romfile=/Users/x/.ssh/id_ed25519", "not-a-mac", "52:54:00:aa:bb"].enumerated() {
+            let utm = try makeUTM("BadMAC\(i)", [
+                "Backend": "Apple", "ConfigurationVersion": 4,
+                "Information": ["Name": "BadMAC\(i)"],
+                "System": ["Architecture": "aarch64", "CPUCount": 2, "MemorySize": 2048,
+                           "Boot": ["OperatingSystem": "Linux", "UEFIBoot": true]],
+                "Drive": [["ImageName": "disk.img", "Identifier": UUID().uuidString]],
+                "Network": [["Mode": "Shared", "MacAddress": bad]],
+            ], data: ["disk.img": raw("linux")])
+            let r = try UTMImporter.importVM(utm, name: nil)
+            let c = try r.bundle.loadConfig()
+            XCTAssertNotEqual(c.network.macAddress, bad.lowercased(), bad)
+            XCTAssertTrue(VMConfig.NetworkConfig.isMACAddress(c.network.macAddress), c.network.macAddress)
+            XCTAssertFalse(c.network.macAddress.contains("romfile"))
+            XCTAssertTrue(r.notes.contains { $0.contains("MAC address") }, bad)
+        }
+    }
+
     func testAppleMacOSVMCarriesItsPlatformIdentity() throws {
         let utm = try makeUTM("Mac", [
             "Backend": "Apple", "ConfigurationVersion": 4,
