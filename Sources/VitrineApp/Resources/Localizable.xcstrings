@@ -104,6 +104,28 @@
         }
       }
     },
+    "%@ boots this VM with BIOS, but its disk also has a UEFI boot loader; Vitrine boots it with UEFI.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ はこの仮想マシンを BIOS で起動していますが、ディスクには UEFI ブートローダもあるため、Vitrine は UEFI で起動します。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 以 BIOS 启动此虚拟机，但其磁盘上也有 UEFI 引导加载程序；Vitrine 会以 UEFI 启动它。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 以 BIOS 啟動此虛擬機器，但其磁碟上也有 UEFI 開機載入程式；Vitrine 會以 UEFI 啟動它。"
+          }
+        }
+      }
+    },
     "%@ didn't shut down": {
       "localizations": {
         "ja": {
@@ -122,6 +144,84 @@
           "stringUnit": {
             "state": "translated",
             "value": "%@ 未能關機"
+          }
+        }
+      }
+    },
+    "%@ doesn't say how many processors the VM has; gave it %lld.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "%1$@ doesn't say how many processors the VM has; gave it %2$lld."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ に仮想マシンのプロセッサ数の記載がないため、%lld 個にしました。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 未说明此虚拟机有几个处理器；已分配 %lld 个。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 未說明此虛擬機器有幾個處理器；已分配 %lld 個。"
+          }
+        }
+      }
+    },
+    "%@ doesn't say how much memory the VM has; gave it %@.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "%1$@ doesn't say how much memory the VM has; gave it %2$@."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ に仮想マシンのメモリ容量の記載がないため、%@ にしました。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 未说明此虚拟机有多少内存；已分配 %@。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 未說明此虛擬機器有多少記憶體；已分配 %@。"
+          }
+        }
+      }
+    },
+    "%@ doesn't say which OS the VM runs; assumed Linux. Change it in the VM's configuration if that's wrong.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ に仮想マシンの OS の記載がないため、Linux とみなしました。違う場合は仮想マシンの構成で変更してください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 未说明此虚拟机运行哪种操作系统；已假定为 Linux。如果不对，请在虚拟机的配置中更改。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 未說明此虛擬機器執行哪種作業系統；已假定為 Linux。如果不對，請在虛擬機器的組態中更改。"
           }
         }
       }
@@ -194,6 +294,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "%@，共 %@"
+          }
+        }
+      }
+    },
+    "%@ recorded no clean shutdown for this VM; its file systems may need checking on first boot.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ にはこの仮想マシンが正常にシステム終了した記録がありません。初回起動時にファイルシステムのチェックが必要になる場合があります。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 没有此虚拟机正常关机的记录；首次启动时可能需要检查其文件系统。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 沒有此虛擬機器正常關機的紀錄；首次啟動時可能需要檢查其檔案系統。"
           }
         }
       }
@@ -304,6 +426,28 @@
         }
       }
     },
+    "%lld MB": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld MB"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld MB"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld MB"
+          }
+        }
+      }
+    },
     "%lld TB": {
       "localizations": {
         "ja": {
@@ -370,6 +514,28 @@
         }
       }
     },
+    "A CD/DVD image was left out; attach it again if you still need it.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CD/DVD イメージは読み込みません。必要な場合はもう一度接続してください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CD/DVD 映像未导入；如仍需要，请重新挂载。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CD/DVD 映像檔未輸入；如仍需要，請重新附加。"
+          }
+        }
+      }
+    },
     "A VM with this name already exists.": {
       "localizations": {
         "ja": {
@@ -414,6 +580,94 @@
         }
       }
     },
+    "A disk image doesn't say what it holds: choose the system installed on it. The VM starts with UEFI, so the disk needs an EFI boot loader.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ディスクイメージには中身の情報がないため、インストールされているシステムを選んでください。仮想マシンは UEFI で起動するので、ディスクには EFI ブートローダが必要です。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "磁盘映像不会说明其中的内容：请选择上面安装的系统。虚拟机以 UEFI 启动，因此磁盘需要有 EFI 引导加载程序。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "磁碟映像檔不會說明其中的內容：請選擇上面安裝的系統。虛擬機器以 UEFI 啟動，因此磁碟需要有 EFI 開機載入程式。"
+          }
+        }
+      }
+    },
+    "A disk is in a form Vitrine can't import.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vitrine で読み込めない形式のディスクがあります。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "有磁盘的格式 Vitrine 无法导入。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "有磁碟的格式 Vitrine 無法輸入。"
+          }
+        }
+      }
+    },
+    "A disk is outside the VM's folder. Only disks inside it can be imported.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "仮想マシンのフォルダの外にあるディスクがあります。読み込めるのはフォルダ内のディスクだけです。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "有磁盘位于虚拟机的文件夹之外。只能导入文件夹内的磁盘。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "有磁碟位於虛擬機器的資料夾之外。只能輸入資料夾內的磁碟。"
+          }
+        }
+      }
+    },
+    "A disk of the VM is missing.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "仮想マシンのディスクが見つかりません。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "找不到虚拟机的某个磁盘。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "找不到虛擬機器的某個磁碟。"
+          }
+        }
+      }
+    },
     "A link or shortcut asked Vitrine to shut this virtual machine down. Unsaved work in the guest will be lost.": {
       "localizations": {
         "ja": {
@@ -432,6 +686,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "某個連結或捷徑要求 Vitrine 將此虛擬機器關機。客體系統中未儲存的工作將會遺失。"
+          }
+        }
+      }
+    },
+    "A virtual machine is being imported": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "仮想マシンを読み込み中です"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在导入虚拟机"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在輸入虛擬機器"
           }
         }
       }
@@ -1165,6 +1441,28 @@
         }
       }
     },
+    "BIOS only": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "BIOS のみ"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "仅 BIOS"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "僅 BIOS"
+          }
+        }
+      }
+    },
     "Back": {
       "localizations": {
         "ja": {
@@ -1183,6 +1481,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "返回"
+          }
+        }
+      }
+    },
+    "Before you import": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "読み込む前に"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "导入前请注意"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "輸入前請注意"
           }
         }
       }
@@ -1639,6 +1959,28 @@
         }
       }
     },
+    "Cancelling…": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "キャンセル中…"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在取消…"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在取消…"
+          }
+        }
+      }
+    },
     "Cannot open %@": {
       "localizations": {
         "ja": {
@@ -1705,6 +2047,28 @@
         }
       }
     },
+    "Check these before starting it:": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "起動する前に以下を確認してください:"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "启动前请检查以下事项："
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "啟動前請檢查以下事項："
+          }
+        }
+      }
+    },
     "Choose a .ipsw restore image": {
       "localizations": {
         "ja": {
@@ -1723,6 +2087,50 @@
           "stringUnit": {
             "state": "translated",
             "value": "選擇 .ipsw 回復映像檔"
+          }
+        }
+      }
+    },
+    "Choose an OVA or OVF package, a VMware, Parallels Desktop, VirtualBox or UTM virtual machine, or a disk image (qcow2, VMDK, VHD, VHDX, VDI or raw).": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OVA/OVF パッケージ、VMware・Parallels Desktop・VirtualBox・UTM の仮想マシン、またはディスクイメージ（qcow2、VMDK、VHD、VHDX、VDI、raw）を選んでください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请选择 OVA 或 OVF 包、VMware、Parallels Desktop、VirtualBox 或 UTM 虚拟机，或者磁盘映像（qcow2、VMDK、VHD、VHDX、VDI 或 raw）。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "請選擇 OVA 或 OVF 套件、VMware、Parallels Desktop、VirtualBox 或 UTM 虛擬機器，或者磁碟映像檔（qcow2、VMDK、VHD、VHDX、VDI 或 raw）。"
+          }
+        }
+      }
+    },
+    "Choose an OVA or OVF package, a VMware, Parallels Desktop, VirtualBox or UTM virtual machine, or a disk image.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OVA/OVF パッケージ、VMware・Parallels Desktop・VirtualBox・UTM の仮想マシン、またはディスクイメージを選んでください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请选择 OVA 或 OVF 包、VMware、Parallels Desktop、VirtualBox 或 UTM 虚拟机，或者磁盘映像。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "請選擇 OVA 或 OVF 套件、VMware、Parallels Desktop、VirtualBox 或 UTM 虛擬機器，或者磁碟映像檔。"
           }
         }
       }
@@ -2157,6 +2565,78 @@
         }
       }
     },
+    "Converting disk %lld of %lld…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Converting disk %1$lld of %2$lld…"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ディスクを変換中（%lld/%lld）…"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在转换磁盘（第 %lld 个，共 %lld 个）…"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在轉換磁碟（第 %lld 個，共 %lld 個）…"
+          }
+        }
+      }
+    },
+    "Converting the disk…": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ディスクを変換中…"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在转换磁盘…"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在轉換磁碟…"
+          }
+        }
+      }
+    },
+    "Copying the virtual machine…": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "仮想マシンをコピー中…"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在拷贝虚拟机…"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在拷貝虛擬機器…"
+          }
+        }
+      }
+    },
     "Could not attach %@": {
       "localizations": {
         "ja": {
@@ -2395,6 +2875,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "無法暫停 %@"
+          }
+        }
+      }
+    },
+    "Couldn't tell the VM's architecture; assumed %@.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "仮想マシンのアーキテクチャを判別できなかったため、%@ とみなしました。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法判断虚拟机的架构；已假定为 %@。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法判斷虛擬機器的架構；已假定為 %@。"
           }
         }
       }
@@ -2732,6 +3234,28 @@
         }
       }
     },
+    "Disk %lld": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ディスク %lld"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "磁盘 %lld"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "磁碟 %lld"
+          }
+        }
+      }
+    },
     "Disk (grows as needed)": {
       "localizations": {
         "ja": {
@@ -2750,6 +3274,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "磁碟（依需要增長）"
+          }
+        }
+      }
+    },
+    "Disk image": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ディスクイメージ"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "磁盘映像"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "磁碟映像檔"
           }
         }
       }
@@ -2795,6 +3341,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "磁碟：%lld GB（依需要增長）"
+          }
+        }
+      }
+    },
+    "Disks": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ディスク"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "磁盘"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "磁碟"
           }
         }
       }
@@ -2883,6 +3451,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "用後即棄：虛擬機器停止時捨棄所有變更"
+          }
+        }
+      }
+    },
+    "Done": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "完了"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "完成"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "完成"
           }
         }
       }
@@ -2993,6 +3583,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "正在下載 macOS %@…"
+          }
+        }
+      }
+    },
+    "Drop to import": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ドロップして読み込む"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "拖放到此处以导入"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "拖放到此處以輸入"
           }
         }
       }
@@ -3129,6 +3741,28 @@
         }
       }
     },
+    "Enter a name for the virtual machine.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "仮想マシンの名前を入力してください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请输入虚拟机的名称。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "請輸入虛擬機器的名稱。"
+          }
+        }
+      }
+    },
     "Error": {
       "localizations": {
         "ja": {
@@ -3197,6 +3831,28 @@
     },
     "Fedora": {
       "shouldTranslate": false
+    },
+    "Firmware": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ファームウェア"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "固件"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "韌體"
+          }
+        }
+      }
     },
     "Fixed IP address": {
       "localizations": {
@@ -3942,6 +4598,204 @@
           "stringUnit": {
             "state": "translated",
             "value": "映像檔"
+          }
+        }
+      }
+    },
+    "Import": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "読み込む"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "导入"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "輸入"
+          }
+        }
+      }
+    },
+    "Import a Virtual Machine": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "仮想マシンを読み込む"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "导入虚拟机"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "輸入虛擬機器"
+          }
+        }
+      }
+    },
+    "Import a virtual machine or disk image from another app": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ほかのアプリの仮想マシンまたはディスクイメージを読み込む"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "从其他 App 导入虚拟机或磁盘映像"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "從其他 App 輸入虛擬機器或磁碟映像檔"
+          }
+        }
+      }
+    },
+    "Import failed": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "読み込めませんでした"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "导入失败"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "輸入失敗"
+          }
+        }
+      }
+    },
+    "Import “%@”": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "「%@」を読み込む"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "导入“%@”"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "輸入「%@」"
+          }
+        }
+      }
+    },
+    "Imported as %@, the architecture of the boot loader on its disk.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ディスク上のブートローダのアーキテクチャである %@ として読み込みます。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "将按磁盘上引导加载程序的架构 %@ 导入。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "將按磁碟上開機載入程式的架構 %@ 輸入。"
+          }
+        }
+      }
+    },
+    "Imported “%@”": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "「%@」を読み込みました"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已导入“%@”"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已輸入「%@」"
+          }
+        }
+      }
+    },
+    "Importing “%@”…": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "「%@」を読み込み中…"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在导入“%@”…"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在輸入「%@」…"
+          }
+        }
+      }
+    },
+    "Import…": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "読み込む…"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "导入…"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "輸入…"
           }
         }
       }
@@ -4943,6 +5797,50 @@
         }
       }
     },
+    "Named the VM “%@”: VM names use letters, digits, “.”, “-” and “_”.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "仮想マシンの名前を「%@」にしました。仮想マシンの名前には英数字、「.」、「-」、「_」を使います。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已将虚拟机命名为“%@”：虚拟机名称使用字母、数字、“.”、“-”和“_”。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已將虛擬機器命名為「%@」：虛擬機器名稱使用字母、數字、「.」、「-」和「_」。"
+          }
+        }
+      }
+    },
+    "Names use letters, digits, “.”, “-” and “_” (up to 64, starting with a letter or digit).": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "名前には英数字、「.」、「-」、「_」を使います（64 文字以内、先頭は英数字）。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "名称使用字母、数字、“.”、“-”和“_”（最多 64 个字符，以字母或数字开头）。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "名稱使用字母、數字、「.」、「-」和「_」（最多 64 個字元，以字母或數字開頭）。"
+          }
+        }
+      }
+    },
     "Needs a Mac with an M3 chip or later and macOS 15 or later.": {
       "localizations": {
         "ja": {
@@ -5248,6 +6146,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "新快照名稱"
+          }
+        }
+      }
+    },
+    "New, random": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "新規（ランダム）"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "新建（随机）"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "新建（隨機）"
           }
         }
       }
@@ -5648,6 +6568,28 @@
         }
       }
     },
+    "Operating system": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "オペレーティングシステム"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "操作系统"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "作業系統"
+          }
+        }
+      }
+    },
     "Options": {
       "localizations": {
         "ja": {
@@ -5666,6 +6608,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "選項"
+          }
+        }
+      }
+    },
+    "Or drop a VM from VMware, Parallels Desktop, VirtualBox or UTM, an OVA package or a disk image here.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "または、VMware・Parallels Desktop・VirtualBox・UTM の仮想マシン、OVA パッケージ、ディスクイメージをここにドロップしてください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "也可以将 VMware、Parallels Desktop、VirtualBox 或 UTM 虚拟机、OVA 包或磁盘映像拖放到这里。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "也可以將 VMware、Parallels Desktop、VirtualBox 或 UTM 虛擬機器、OVA 套件或磁碟映像檔拖放到這裡。"
           }
         }
       }
@@ -5957,6 +6921,28 @@
         }
       }
     },
+    "QEMU (emulated)": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "QEMU（エミュレーション）"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "QEMU（模拟）"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "QEMU（模擬）"
+          }
+        }
+      }
+    },
     "QEMU reported:\n%@\n\nmacOS keeps USB devices its own drivers use; those can only be passed to Windows VMs when QEMU runs as root.": {
       "localizations": {
         "ja": {
@@ -5997,6 +6983,50 @@
           "stringUnit": {
             "state": "translated",
             "value": "結束 Vitrine"
+          }
+        }
+      }
+    },
+    "Quitting stops the import and removes the partly imported virtual machine. The original is not changed.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "終了すると読み込みが中止され、読み込み途中の仮想マシンは削除されます。元の仮想マシンは変更されません。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "退出会停止导入，并移除尚未导入完成的虚拟机。原始虚拟机不会被更改。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "結束會停止輸入，並移除尚未輸入完成的虛擬機器。原始虛擬機器不會被更改。"
+          }
+        }
+      }
+    },
+    "Raised the memory to %@, Vitrine's minimum.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "メモリを Vitrine の最小値である %@ に増やしました。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已将内存提高到 Vitrine 的最低要求 %@。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已將記憶體提高到 Vitrine 的最低要求 %@。"
           }
         }
       }
@@ -6045,6 +7075,50 @@
         }
       }
     },
+    "Reading the disks needs qemu-img. Install QEMU (brew install qemu) and try again.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ディスクの読み取りには qemu-img が必要です。QEMU をインストール（brew install qemu）してから、もう一度お試しください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "读取磁盘需要 qemu-img。请安装 QEMU（brew install qemu）后重试。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "讀取磁碟需要 qemu-img。請安裝 QEMU（brew install qemu）後再試一次。"
+          }
+        }
+      }
+    },
+    "Reading “%@”…": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "「%@」を読み取り中…"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在读取“%@”…"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在讀取「%@」…"
+          }
+        }
+      }
+    },
     "Ready-made desktop · set up automatically": {
       "localizations": {
         "ja": {
@@ -6085,6 +7159,50 @@
           "stringUnit": {
             "state": "translated",
             "value": "建議"
+          }
+        }
+      }
+    },
+    "Reduced the memory to %@, the amount this Mac has.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "メモリをこの Mac の搭載量である %@ に減らしました。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已将内存减少到这台 Mac 的容量 %@。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已將記憶體減少到此 Mac 的容量 %@。"
+          }
+        }
+      }
+    },
+    "Reduced the processors to %lld, the number this Mac has.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "プロセッサ数をこの Mac の数である %lld 個に減らしました。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已将处理器减少到这台 Mac 的数量 %lld 个。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已將處理器減少到此 Mac 的數量 %lld 個。"
           }
         }
       }
@@ -6384,6 +7502,28 @@
         }
       }
     },
+    "Runs on": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "実行環境"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "运行环境"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "執行環境"
+          }
+        }
+      }
+    },
     "Saved in": {
       "localizations": {
         "ja": {
@@ -6622,6 +7762,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "傳送按鍵"
+          }
+        }
+      }
+    },
+    "Settings come from the UTM virtual machine. Anything that can't be carried over is listed once the import is done.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "設定は UTM の仮想マシンから引き継ぎます。引き継げない項目は、読み込みの完了後に表示されます。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "设置沿用 UTM 虚拟机的设置。无法沿用的项目会在导入完成后列出。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "設定沿用 UTM 虛擬機器的設定。無法沿用的項目會在輸入完成後列出。"
           }
         }
       }
@@ -7622,6 +8784,28 @@
         }
       }
     },
+    "Stop Import and Quit": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "読み込みを中止して終了"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "停止导入并退出"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "停止輸入並結束"
+          }
+        }
+      }
+    },
     "Stopped": {
       "localizations": {
         "ja": {
@@ -7842,6 +9026,28 @@
         }
       }
     },
+    "System": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "システム"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "系统"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "系統"
+          }
+        }
+      }
+    },
     "System disk": {
       "localizations": {
         "ja": {
@@ -7908,6 +9114,28 @@
         }
       }
     },
+    "The VM boots only with legacy BIOS, and Vitrine starts VMs with UEFI. Convert the guest to UEFI in %@ first (or reinstall it).": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この仮想マシンはレガシー BIOS でしか起動できませんが、Vitrine は仮想マシンを UEFI で起動します。先に %@ でゲストを UEFI に変換してください（または再インストールしてください）。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此虚拟机只能以传统 BIOS 启动，而 Vitrine 以 UEFI 启动虚拟机。请先在 %@ 中将客户机转换为 UEFI（或重新安装）。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此虛擬機器只能以傳統 BIOS 啟動，而 Vitrine 以 UEFI 啟動虛擬機器。請先在 %@ 中將客體系統轉換為 UEFI（或重新安裝）。"
+          }
+        }
+      }
+    },
     "The VM can't open connections to the Mac or the internet; forwarded ports and shared folders still work.": {
       "localizations": {
         "ja": {
@@ -7930,6 +9158,72 @@
         }
       }
     },
+    "The VM has no disk to import.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この仮想マシンには読み込めるディスクがありません。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此虚拟机没有可导入的磁盘。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此虛擬機器沒有可輸入的磁碟。"
+          }
+        }
+      }
+    },
+    "The VM has snapshots. Delete them in %@ first so its disks are merged, then import it.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この仮想マシンにはスナップショットがあります。先に %@ でスナップショットを削除してディスクを統合してから読み込んでください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此虚拟机有快照。请先在 %@ 中删除快照以合并其磁盘，然后再导入。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此虛擬機器有快照。請先在 %@ 中刪除快照以合併其磁碟，然後再輸入。"
+          }
+        }
+      }
+    },
+    "The VM is encrypted in %@. Remove the encryption there first.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この仮想マシンは %@ で暗号化されています。先にそちらで暗号化を解除してください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此虚拟机已在 %@ 中加密。请先在那里移除加密。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此虛擬機器已在 %@ 中加密。請先在那裡移除加密。"
+          }
+        }
+      }
+    },
     "The VM is in use by another process (pid %d).": {
       "localizations": {
         "ja": {
@@ -7948,6 +9242,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "虛擬機器正由另一個程序使用中（pid %d）。"
+          }
+        }
+      }
+    },
+    "The VM is suspended in %@. Resume it and shut it down before importing.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この仮想マシンは %@ でサスペンド中です。再開してシステム終了してから読み込んでください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此虚拟机在 %@ 中处于挂起状态。请先恢复并关机，然后再导入。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此虛擬機器在 %@ 中處於休眠狀態。請先繼續執行並關機，然後再輸入。"
           }
         }
       }
@@ -7992,6 +9308,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "虛擬機器會加入 %@ 所在的網路，並像另一台電腦一樣由該網路的路由器取得自己的位址。"
+          }
+        }
+      }
+    },
+    "The VM may not find its boot loader: the disk has no fallback loader, and the boot entries kept by %@ aren't imported.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "仮想マシンがブートローダを見つけられない可能性があります。ディスクにフォールバックローダがなく、%@ が保持している起動エントリは読み込まれません。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "虚拟机可能找不到引导加载程序：磁盘上没有后备加载程序，且 %@ 保存的启动项不会被导入。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "虛擬機器可能找不到開機載入程式：磁碟上沒有備援載入程式，且 %@ 保存的開機項目不會被輸入。"
           }
         }
       }
@@ -8103,6 +9441,144 @@
           "stringUnit": {
             "state": "translated",
             "value": "虛擬機器可以連到這台 Mac 和其他僅限主機的虛擬機器，但無法連上網際網路。需要 macOS 26 或以上版本。"
+          }
+        }
+      }
+    },
+    "The VM seems to be open in %@. Shut it down and quit %@ before importing.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "The VM seems to be open in %1$@. Shut it down and quit %2$@ before importing."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この仮想マシンは %1$@ で開かれているようです。システム終了して %2$@ を終了してから読み込んでください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此虚拟机似乎正在 %1$@ 中打开。请先关机并退出 %2$@，然后再导入。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此虛擬機器似乎正在 %1$@ 中開啟。請先關機並結束 %2$@，然後再輸入。"
+          }
+        }
+      }
+    },
+    "The VM uses a physical disk. Only disk image files can be imported.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この仮想マシンは物理ディスクを使用しています。読み込めるのはディスクイメージファイルだけです。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此虚拟机使用物理磁盘。只能导入磁盘映像文件。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此虛擬機器使用實體磁碟。只能輸入磁碟映像檔。"
+          }
+        }
+      }
+    },
+    "The VM's MAC address isn't usable; it gets a new one.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "仮想マシンの MAC アドレスは使用できないため、新しいアドレスを割り当てます。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "虚拟机的 MAC 地址不可用；将分配新的地址。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "虛擬機器的 MAC 位址不可用；將分配新的位址。"
+          }
+        }
+      }
+    },
+    "The VM's UEFI variables aren't imported; the guest boots through its disk's fallback loader.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "仮想マシンの UEFI 変数は読み込まれません。ゲストはディスクのフォールバックローダから起動します。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "虚拟机的 UEFI 变量不会被导入；客户机将通过其磁盘上的后备加载程序启动。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "虛擬機器的 UEFI 變數不會被輸入；客體系統將透過其磁碟上的備援載入程式啟動。"
+          }
+        }
+      }
+    },
+    "The VM's configuration can't be read.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "仮想マシンの構成を読み取れません。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法读取虚拟机的配置。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法讀取虛擬機器的組態。"
+          }
+        }
+      }
+    },
+    "The VM's virtual TPM isn't imported.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "仮想マシンの仮想 TPM は読み込まれません。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "虚拟机的虚拟 TPM 不会被导入。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "虛擬機器的虛擬 TPM 不會被輸入。"
           }
         }
       }
@@ -8305,6 +9781,50 @@
         }
       }
     },
+    "The guest gets virtio/NVMe disks and a virtio network adapter, so its network interface may get a new name.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ゲストには virtio/NVMe ディスクと virtio ネットワークアダプタが割り当てられるため、ネットワークインターフェイス名が変わる場合があります。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "客户机将使用 virtio/NVMe 磁盘和 virtio 网络适配器，因此其网络接口的名称可能会改变。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "客體系統將使用 virtio/NVMe 磁碟和 virtio 網路介面卡，因此其網路介面的名稱可能會改變。"
+          }
+        }
+      }
+    },
+    "The guest is 32-bit. Only arm64 and x86_64 guests are supported.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ゲストは 32 ビットです。対応しているのは arm64 と x86_64 のゲストだけです。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "客户机是 32 位的。仅支持 arm64 和 x86_64 客户机。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "客體系統是 32 位元的。僅支援 arm64 和 x86_64 客體系統。"
+          }
+        }
+      }
+    },
     "The guest's partition will be extended on next start": {
       "localizations": {
         "ja": {
@@ -8323,6 +9843,94 @@
           "stringUnit": {
             "state": "translated",
             "value": "客體系統的分割區將在下次啟動時擴充"
+          }
+        }
+      }
+    },
+    "The package can't be read.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "パッケージを読み取れません。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法读取该包。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法讀取該套件。"
+          }
+        }
+      }
+    },
+    "The package doesn't match its manifest: it is damaged or was altered.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "パッケージがマニフェストと一致しません。破損しているか、改変されています。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "该包与其清单不符：它已损坏或被篡改。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "該套件與其資訊清單不符：它已損壞或遭到竄改。"
+          }
+        }
+      }
+    },
+    "The package holds more than one virtual machine. Only single-VM packages can be imported.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "パッケージに複数の仮想マシンが含まれています。読み込めるのは仮想マシンが 1 台だけのパッケージです。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "该包包含多个虚拟机。只能导入仅含一个虚拟机的包。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "該套件包含多個虛擬機器。只能輸入僅含一個虛擬機器的套件。"
+          }
+        }
+      }
+    },
+    "The package is signed. Vitrine checks its manifest but not the signature.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "パッケージは署名されています。Vitrine はマニフェストを確認しますが、署名は確認しません。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "该包已签名。Vitrine 会检查其清单，但不检查签名。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "該套件已簽署。Vitrine 會檢查其資訊清單，但不檢查簽名。"
           }
         }
       }
@@ -8367,6 +9975,50 @@
           "stringUnit": {
             "state": "translated",
             "value": "這通常需要 10–20 分鐘。"
+          }
+        }
+      }
+    },
+    "This virtual machine can't be imported": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この仮想マシンは読み込めません"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法导入此虚拟机"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法輸入此虛擬機器"
+          }
+        }
+      }
+    },
+    "This virtual machine runs on QEMU, which isn't installed. Install it (brew install qemu) before starting the VM.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この仮想マシンは QEMU で動作しますが、QEMU がインストールされていません。仮想マシンを起動する前にインストール（brew install qemu）してください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此虚拟机在 QEMU 上运行，但尚未安装 QEMU。请在启动虚拟机前安装（brew install qemu）。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此虛擬機器在 QEMU 上執行，但尚未安裝 QEMU。請在啟動虛擬機器前安裝（brew install qemu）。"
           }
         }
       }
@@ -8700,6 +10352,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "解除安裝橋接輔助程式…"
+          }
+        }
+      }
+    },
+    "Unknown": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "不明"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未知"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未知"
           }
         }
       }
@@ -9056,6 +10730,50 @@
         }
       }
     },
+    "Vitrine can't import “%@”": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vitrine は「%@」を読み込めません"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vitrine 无法导入“%@”"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vitrine 無法輸入「%@」"
+          }
+        }
+      }
+    },
+    "Vitrine can't read the boot disk's partition table, so it can't tell whether the VM boots with UEFI.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "起動ディスクのパーティションテーブルを読み取れないため、仮想マシンが UEFI で起動できるか判別できません。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vitrine 无法读取启动磁盘的分区表，因此无法判断虚拟机能否以 UEFI 启动。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vitrine 無法讀取開機磁碟的分割表，因此無法判斷虛擬機器能否以 UEFI 啟動。"
+          }
+        }
+      }
+    },
     "Vitrine can't suspend a VM while a drive is connected (the guest may not have written everything to it yet). Eject the drive in the guest and disconnect it, or shut the VM down before quitting.": {
       "localizations": {
         "ja": {
@@ -9320,6 +11038,28 @@
         }
       }
     },
+    "macOS VMs can't be imported: a macOS guest is tied to its platform identity, which doesn't carry over. Create a new macOS VM instead.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "macOS の仮想マシンは読み込めません。macOS ゲストはプラットフォーム ID に結び付いており、それを引き継げないためです。代わりに新しい macOS 仮想マシンを作成してください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法导入 macOS 虚拟机：macOS 客户机与其平台标识绑定，而平台标识无法沿用。请改为创建新的 macOS 虚拟机。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法輸入 macOS 虛擬機器：macOS 客體系統與其平台識別綁定，而平台識別無法沿用。請改為建立新的 macOS 虛擬機器。"
+          }
+        }
+      }
+    },
     "macOS guests get the Mac's camera as “Vitrine Camera” while the camera switch in the VM window's status bar is on. The camera extension inside the Vitrine agent must be signed by an Apple Developer team before macOS activates it (docs/signing.md).": {
       "localizations": {
         "ja": {
@@ -9416,6 +11156,50 @@
     },
     "x64": {
       "shouldTranslate": false
+    },
+    "x86_64 (emulated)": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "x86_64（エミュレーション）"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "x86_64（模拟）"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "x86_64（模擬）"
+          }
+        }
+      }
+    },
+    "x86_64 guests are emulated on Apple silicon (QEMU) and run many times slower than native ones.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "x86_64 ゲストは Apple シリコン上でエミュレーション（QEMU）されるため、ネイティブのゲストより大幅に低速です。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "x86_64 客户机在 Apple 芯片上通过模拟（QEMU）运行，速度比原生客户机慢很多倍。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "x86_64 客體系統在 Apple 晶片上透過模擬（QEMU）執行，速度比原生客體系統慢很多倍。"
+          }
+        }
+      }
     },
     "“%@” is still running": {
       "localizations": {

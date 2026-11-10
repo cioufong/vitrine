@@ -18,7 +18,8 @@ public enum UTMImporter {
         try importVM(url, name: name).bundle
     }
 
-    public static func importVM(_ src: URL, name: String?) throws -> Result {
+    /// `cancellation` stops a disk conversion (QEMU VMs' disks) and removes the half-made VM.
+    public static func importVM(_ src: URL, name: String?, cancellation: DiskImport.Cancellation? = nil) throws -> Result {
         let plistURL = src.appendingPathComponent("config.plist")
         guard let data = try? Data(contentsOf: plistURL),
               let root = try PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any] else {
@@ -199,10 +200,12 @@ public enum UTMImporter {
         let bundle = try VMBundle.create(at: url, config: config) { bundle, config in
             for (rel, data) in platformFiles { try data.write(to: bundle.resolve(rel)) }
             for c in copies {
+                try cancellation?.check()
                 let dest = bundle.resolve(c.to)
                 try FileManager.default.createDirectory(at: dest.deletingLastPathComponent(), withIntermediateDirectories: true)
-                if c.convert { try DiskImport.convert(c.from, to: dest) } else { try DiskImage.clone(c.from, to: dest) }
+                if c.convert { try DiskImport.convert(c.from, to: dest, cancellation: cancellation) } else { try DiskImage.clone(c.from, to: dest) }
             }
+            try cancellation?.check()
             try config.validate(bundle: bundle)
         }
         return Result(bundle: bundle, notes: notes)

@@ -40,6 +40,8 @@ final class AppModel: ObservableObject {
     private var subscriptions: [String: AnyCancellable] = [:]
     /// Pending app-catalog requests by bundle path (see createLaunchers).
     var catalogWaiters: [String: (AppCatalog) -> Void] = [:]
+    /// The import under way (File ▸ Import…, or a drop on the Control Center), if any.
+    let importSession = VMImportSession()
 
     struct AlertItem: Identifiable {
         let id = UUID()
@@ -91,6 +93,10 @@ final class AppModel: ObservableObject {
         }
         watchLibrary()
         watchClipboardFocus()
+        importSession.onImported = { [weak self] bundle in
+            self?.refresh()
+            self?.selection = bundle
+        }
     }
 
     /// Before anything starts: ends QEMUs left running by an earlier Vitrine process that died

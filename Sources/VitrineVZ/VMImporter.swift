@@ -14,9 +14,10 @@ public enum VMImporter {
     }
 
     /// A new VM booting (UEFI) from a copy of `disk` converted to raw. Arm Linux runs on
-    /// Virtualization.framework; Windows and x86_64 guests on QEMU.
+    /// Virtualization.framework; Windows and x86_64 guests on QEMU. `cancellation` stops the
+    /// conversion; the half-made VM is removed again.
     @discardableResult
-    public static func importDisk(_ disk: URL, _ o: DiskOptions) throws -> VMBundle {
+    public static func importDisk(_ disk: URL, _ o: DiskOptions, cancellation: DiskImport.Cancellation? = nil) throws -> VMBundle {
         // The name becomes the bundle's path: check it before building one from it.
         guard VMCreationJob.isValidVMName(o.name) else {
             throw VitrineError.invalidConfig("\(o.name.debugDescription) is not a valid VM name (letters, digits, '.', '-' and '_', up to 64, starting with a letter or digit)")
@@ -32,7 +33,8 @@ public enum VMImporter {
         let url = VMLibrary.bundleURL(named: o.name)
         guard !FileManager.default.fileExists(atPath: url.path) else { throw VitrineError.invalidConfig("a VM named \(o.name) already exists") }
         return try VMBundle.create(at: url, config: config) { bundle, config in
-            try DiskImport.convert(disk, to: bundle.resolve("disk.img"))
+            try DiskImport.convert(disk, to: bundle.resolve("disk.img"), cancellation: cancellation)
+            try cancellation?.check()
             try config.validate(bundle: bundle)
         }
     }

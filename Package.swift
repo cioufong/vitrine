@@ -56,6 +56,8 @@ let package = Package(
         .testTarget(name: "AgentProbeRegression",
                     dependencies: ["vitrinectl", "VitrineQEMU", "VitrineAgentHost", "VitrineAgentProtocol", "VitrineCore"],
                     swiftSettings: v5),
+        // The app's non-UI logic (import source detection, import messages) in place (`@testable import VitrineApp`).
+        .testTarget(name: "VitrineAppTests", dependencies: ["VitrineApp", "VitrineVZ", "VitrineCore"], swiftSettings: v5),
         .testTarget(name: "MacInputInjectorRegression", dependencies: ["vitrine-agent", "VitrineAgentProtocol"],
                     swiftSettings: v5),
     ]
