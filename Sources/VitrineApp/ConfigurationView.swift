@@ -118,8 +118,7 @@ private struct GeneralPane: View {
     }
 
     func save(_ change: (inout VMConfig) -> Void) {
-        var c = controller.config; change(&c)
-        do { try controller.saveConfig(c) } catch { model.report(error) }
+        do { try controller.updateConfig(change) } catch { model.report(error) }
     }
 }
 
@@ -167,8 +166,7 @@ private struct OptionsPane: View {
 
     func binding<T>(_ kp: WritableKeyPath<VMConfig, T>) -> Binding<T> {
         Binding(get: { controller.config[keyPath: kp] }, set: { v in
-            var c = controller.config; c[keyPath: kp] = v
-            do { try controller.saveConfig(c) } catch { model.report(error) }
+            do { try controller.updateConfig { $0[keyPath: kp] = v } } catch { model.report(error) }
         })
     }
 }
@@ -451,8 +449,7 @@ private struct HardwarePane: View {
                 Section("Installer (USB)") {
                     LabeledContent("Image", value: URL(fileURLWithPath: media).lastPathComponent)
                     Button("Eject Installer") {
-                        var c = controller.config; c.installMedia = nil
-                        do { try controller.saveConfig(c) } catch { model.report(error) }
+                        do { try controller.updateConfig { $0.installMedia = nil } } catch { model.report(error) }
                     }
                     Text("Eject after installing so the VM boots from its own disk.").font(.caption).foregroundStyle(.secondary)
                 }
@@ -491,15 +488,14 @@ private struct HardwarePane: View {
     func setResolution(_ s: String) {
         let parts = s.split(separator: "x").compactMap { Int($0) }
         guard parts.count == 2 else { return }
-        var c = controller.config
-        c.display.widthPixels = parts[0]; c.display.heightPixels = parts[1]
-        do { try controller.saveConfig(c) } catch { model.report(error) }
+        do {
+            try controller.updateConfig { $0.display.widthPixels = parts[0]; $0.display.heightPixels = parts[1] }
+        } catch { model.report(error) }
     }
 
     func binding<T>(_ kp: WritableKeyPath<VMConfig, T>) -> Binding<T> {
         Binding(get: { controller.config[keyPath: kp] }, set: { v in
-            var c = controller.config; c[keyPath: kp] = v
-            do { try controller.saveConfig(c) } catch { model.report(error) }
+            do { try controller.updateConfig { $0[keyPath: kp] = v } } catch { model.report(error) }
         })
     }
 }
@@ -584,7 +580,7 @@ private struct SnapshotsPane: View {
     func restore(_ s: Snapshot) {
         do {
             try SnapshotStore(bundle: bundle).restore(s.id)
-            if let fresh = try? bundle.loadConfig() { try? controller.saveConfig(fresh) }
+            controller.reloadConfig() // the restored configuration is already saved
             controller.refreshSavedState()
             reload()
         } catch { model.report(error, "Restore failed") }

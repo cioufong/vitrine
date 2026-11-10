@@ -231,6 +231,9 @@ struct VMActionsMenu: View {
             Button("Install Vitrine Agent") { model.installAgent(bundle) }
             Button("Add Apps to Launchpad") { model.createLaunchers(bundle) }
                 .disabled(controller.agent?.guestHello?.capabilities.contains("apps") != true)
+        } else if controller.hasLiveBackend {
+            // E.g. .error after a suspend that couldn't be undone: the backend still runs.
+            Button("Force Stop") { model.stop(bundle, force: true) }
         } else {
             Button(controller.state == .suspended ? "Resume" : "Start") {
                 model.start(bundle); openWindow(id: "vm", value: bundle.url.path)
@@ -241,10 +244,10 @@ struct VMActionsMenu: View {
         Divider()
         Button("Configure…") { openWindow(id: "config", value: bundle.url.path) }
         Button("Snapshots…") { model.configTab = .snapshots; openWindow(id: "config", value: bundle.url.path) }
-        Button("Clone") { model.clone(bundle) }.disabled(running)
+        Button("Clone") { model.clone(bundle) }.disabled(running || controller.hasLiveBackend)
         Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([bundle.url]) }
         Divider()
-        Button("Remove…", role: .destructive) { model.delete(bundle) }.disabled(running)
+        Button("Remove…", role: .destructive) { model.delete(bundle) }.disabled(running || controller.hasLiveBackend)
     }
 }
 

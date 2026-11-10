@@ -67,9 +67,8 @@ public final class QEMUMachine: @unchecked Sendable {
     private func startChildren() async throws {
         let fm = FileManager.default
         try fm.createDirectory(at: bundle.socketDirectory, withIntermediateDirectories: true)
-        // A QEMU from a Vitrine process that died keeps the disk open (and locked) and would lose
-        // its sockets below; it can only be stopped, before the new one takes its place.
-        let orphanNote = await terminateOrphan()
+        // A QEMU left behind by a Vitrine process that died was already ended when the caller took
+        // the bundle's lock (QEMUOrphan), before its sockets are replaced below.
         // Port files too: a stale one (from a run with a different network setup) would point
         // other processes at whatever now listens on that loopback port.
         for s in [sockets.qmp, sockets.qmpTools, sockets.vnc, sockets.agent, sockets.tpm, sockets.sshPortFile, sockets.agentPortFile, sockets.serial] {
@@ -105,7 +104,6 @@ public final class QEMUMachine: @unchecked Sendable {
         log.seekToEndOfFile()
         let logged = args.map { $0.hasPrefix("type=11,value=vitrine.token=") ? "type=11,value=vitrine.token=<redacted>" : $0 }
         // write(contentsOf:) rather than write(_:), which raises an exception on a full disk.
-        if let orphanNote { try? log.write(contentsOf: Data("\n=== \(Date()) \(orphanNote)\n".utf8)) }
         try? log.write(contentsOf: Data("\n=== \(Date()) \(env.system(config.effectiveArchitecture).path) \(logged.joined(separator: " "))\n".utf8))
         let runStart = log.offsetInFile
 
@@ -127,7 +125,7 @@ public final class QEMUMachine: @unchecked Sendable {
                 self.swtpm?.terminate()
                 self.rfb?.close()
                 self.samba?.remove()
-                try? FileManager.default.removeItem(at: self.sockets.pidFile)
+                QEMUOrphan.removeRecord(id: self.config.id, bundle: self.bundle, pid: proc.processIdentifier)
                 self.startLock.lock()
                 let started = self.startCompleted
                 if !started { self.pendingExit = exit }
@@ -137,7 +135,7 @@ public final class QEMUMachine: @unchecked Sendable {
         }
         try p.run()
         qemu = p
-        Self.recordPID(of: p, in: sockets.pidFile)
+        QEMUOrphan.record(pid: p.processIdentifier, bundle: bundle, id: config.id)
 
         let qmpPath = sockets.qmp.path, vncPath = sockets.vnc.path
         let (q, r): (QMPClient, RFBClient)
@@ -187,59 +185,6 @@ public final class QEMUMachine: @unchecked Sendable {
         if let exit {
             throw VitrineError.backend("QEMU exited with status \(exit.status) while starting\n\(exit.tail ?? "")")
         }
-    }
-
-    // MARK: Orphaned processes
-
-    /// Writes "<pid> <process start time>" so that a stale file (PID reused by another process after
-    /// a reboot, say) is never mistaken for the QEMU it named.
-    private static func recordPID(of p: Process, in file: URL) {
-        let pid = p.processIdentifier
-        guard let start = processStartTime(pid) else { return }
-        try? "\(pid) \(start)".write(to: file, atomically: true, encoding: .utf8)
-    }
-
-    private static func processStartTime(_ pid: pid_t) -> UInt64? {
-        var info = proc_bsdinfo()
-        let size = Int32(MemoryLayout<proc_bsdinfo>.size)
-        guard proc_pidinfo(pid, PROC_PIDTBSDINFO, 0, &info, size) == size else { return nil }
-        return info.pbi_start_tvsec
-    }
-
-    /// Whether `pid` is the qemu-system process the pid file described.
-    private static func isRecordedQEMU(pid: pid_t, startedAt start: UInt64) -> Bool {
-        guard pid > 0, kill(pid, 0) == 0 || errno == EPERM, processStartTime(pid) == start else { return false }
-        var buf = [CChar](repeating: 0, count: 4096)
-        guard proc_pidpath(pid, &buf, UInt32(buf.count)) > 0 else { return false }
-        return URL(fileURLWithPath: String(cString: buf)).lastPathComponent.hasPrefix("qemu-system-")
-    }
-
-    /// Terminates a QEMU left behind by an earlier Vitrine process that died without stopping it
-    /// (crash, `kill -9`, forced logout). Nothing can reach it any more once this run replaces its
-    /// sockets, and it holds the disk image's lock, so the guest gets the power cut it would get
-    /// anyway, now rather than at an arbitrary later time. Returns a line for the VM log.
-    private func terminateOrphan() async -> String? {
-        let file = sockets.pidFile
-        guard let text = try? String(contentsOf: file, encoding: .utf8) else { return nil }
-        try? FileManager.default.removeItem(at: file)
-        let parts = text.split(separator: " ")
-        guard parts.count == 2, let pid = pid_t(parts[0]), let start = UInt64(parts[1]),
-              Self.isRecordedQEMU(pid: pid, startedAt: start) else { return nil }
-        kill(pid, SIGTERM) // swtpm runs with --terminate and follows QEMU
-        let deadline = Date().addingTimeInterval(5)
-        while Self.isRecordedQEMU(pid: pid, startedAt: start), Date() < deadline {
-            try? await Task.sleep(nanoseconds: 100_000_000)
-        }
-        var how = "terminated"
-        if Self.isRecordedQEMU(pid: pid, startedAt: start) {
-            kill(pid, SIGKILL)
-            how = "killed"
-            let deadline = Date().addingTimeInterval(2)
-            while Self.isRecordedQEMU(pid: pid, startedAt: start), Date() < deadline {
-                try? await Task.sleep(nanoseconds: 100_000_000)
-            }
-        }
-        return "\(how) QEMU (pid \(pid)) left running by an earlier Vitrine process"
     }
 
     /// The SMB shares for a Windows guest: its shared folders plus the drag-and-drop folder.
@@ -487,9 +432,11 @@ public final class QEMUMachine: @unchecked Sendable {
     /// Saves RAM + device state to the bundle (QEMU migration to a file), then quits.
     public func suspend() async throws {
         suspendFailureState = nil
-        let wasPaused = try await control { try $0.status() } == "paused"
+        // Unknown if the status query itself fails; recovery then leaves the run state as it is.
+        var wasPaused: Bool?
         let partial = bundle.url.appendingPathComponent("state.qemusave.partial")
         do {
+            wasPaused = try await control { try $0.status() } == "paused"
             try await saveAndQuit(partial: partial)
         } catch {
             await recoverFailedSuspend(wasPaused: wasPaused, partial: partial)
@@ -549,7 +496,7 @@ public final class QEMUMachine: @unchecked Sendable {
 
     /// A QMP I/O error invalidates that reply stream. Reconnect before cancellation/recovery, and
     /// never unlink an output file while QEMU may still be writing migration data into it.
-    private func recoverFailedSuspend(wasPaused: Bool, partial: URL) async {
+    private func recoverFailedSuspend(wasPaused: Bool?, partial: URL) async {
         suspendFailureState = .unavailable
         guard isRunning else { return }
         var migrationSettled = false
@@ -572,7 +519,8 @@ public final class QEMUMachine: @unchecked Sendable {
                 throw VitrineError.backend("migration did not cancel")
             }
             migrationSettled = true
-            try await control { try $0.execute(wasPaused ? "stop" : "cont") }
+            // Nothing was sent before the status was known, so an unknown one needs no undoing.
+            if let wasPaused { try await control { try $0.execute(wasPaused ? "stop" : "cont") } }
             if hotplugAudio {
                 let devices = try await control { try $0.execute("qom-list", arguments: ["path": "/machine/peripheral"]) as? [[String: Any]] } ?? []
                 if !devices.contains(where: { $0["name"] as? String == "audio0" }) { try await replugAudioIfNeeded() }

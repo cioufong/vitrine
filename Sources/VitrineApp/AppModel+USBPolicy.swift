@@ -66,9 +66,7 @@ extension AppModel {
             alert.suppressionButton?.title = String(localized: "Always do this for \(target.bundle.name)")
             let connect = alert.runModal() == .alertFirstButtonReturn
             if alert.suppressionButton?.state == .on {
-                var c = (try? target.bundle.loadConfig()) ?? target.config // may have changed while asking
-                c.features.usbConnect = connect ? .connect : .keepOnMac
-                do { try target.saveConfig(c) } catch { report(error) }
+                do { try target.updateConfig { $0.features.usbConnect = connect ? .connect : .keepOnMac } } catch { report(error) }
             }
             // Still there after the question? (It may have been unplugged while the alert was up.)
             if connect, let current = HostUSB.current(matching: device) {

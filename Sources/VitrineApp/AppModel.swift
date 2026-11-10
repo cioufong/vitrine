@@ -83,6 +83,7 @@ final class AppModel: ObservableObject {
     private var thumbnailTimer: Timer?
 
     init() {
+        Self.recoverLibraryAtLaunch()
         refresh()
         AppModel.shared = self
         thumbnailTimer = Timer.scheduledTimer(withTimeInterval: 10, repeats: true) { [weak self] _ in
@@ -92,7 +93,24 @@ final class AppModel: ObservableObject {
         watchClipboardFocus()
     }
 
+    /// Before anything starts: ends QEMUs left running by an earlier Vitrine process that died
+    /// (taking a bundle's lock does that), and moves VMs whose creation was interrupted (quit or
+    /// crash mid-install, Ctrl-C on `vitrinectl create`) to the Trash. VMs another process holds
+    /// are left alone.
+    static func recoverLibraryAtLaunch() {
+        for b in VMLibrary.list(includingInstalling: true) where !b.isLocked {
+            if b.isInstalling {
+                if let trashed = try? b.trashAbandonedCreation() {
+                    NSLog("Vitrine: moved \(b.name), whose creation was interrupted, to the Trash (\(trashed.path))")
+                }
+            } else if QEMUOrphan.hasRecord(for: b, id: (try? b.loadConfig())?.id) {
+                try? b.withExclusiveLock {}
+            }
+        }
+    }
+
     private var libraryWatch: DispatchSourceFileSystemObject?
+    private var pendingCreationCheck = false
     private var focusObservers: [NSObjectProtocol] = []
 
     /// A VM shares the clipboard only while one of its windows is key in the active app (see
@@ -168,10 +186,14 @@ final class AppModel: ObservableObject {
         for key in coherenceActive { exitCoherence(VMBundle(url: URL(fileURLWithPath: key)), takeKey: false) }
         // Let in-flight transitions (a suspend already saving, a VM still booting) settle first.
         let settle = Date().addingTimeInterval(120)
-        while liveControllers.contains(where: { $0.state != .running && $0.state != .paused }), Date() < settle {
+        // (.error with a live backend is not a transition: nothing will settle it but a forced stop.)
+        while liveControllers.contains(where: { ![.running, .paused, .error].contains($0.state) }), Date() < settle {
             try? await Task.sleep(nanoseconds: 200_000_000)
         }
-        let quit = await QuitSequence.run(activeControllers) { question in
+        // A VM left in .error by a failed suspend still runs: its suspend and shutdown fail, so
+        // the user is asked before it is forced off.
+        let targets = activeControllers + liveControllers.filter { $0.state == .error }
+        let quit = await QuitSequence.run(targets) { question in
             NSApp.activate()
             return Self.askWhileQuitting(question)
         }
@@ -208,6 +230,17 @@ final class AppModel: ObservableObject {
         try? FileManager.default.createDirectory(at: VMLibrary.root, withIntermediateDirectories: true)
         bundles = VMLibrary.list()
         for b in bundles { controllers[b.url.path]?.reloadConfig() }
+        // A VM being created (by vitrinectl, say) appears once its marker goes, which the library
+        // watcher doesn't see (it is inside the bundle): look again while one is in progress.
+        if !pendingCreationCheck, VMLibrary.list(includingInstalling: true).count > bundles.count {
+            pendingCreationCheck = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
+                MainActor.assumeIsolated {
+                    self?.pendingCreationCheck = false
+                    self?.refresh()
+                }
+            }
+        }
         if let sel = selection, !bundles.contains(sel) { selection = nil }
     }
 

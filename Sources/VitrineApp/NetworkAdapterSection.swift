@@ -120,15 +120,17 @@ struct NetworkAdapterSection: View {
     }
 
     private func apply(_ s: Source) {
-        var c = config
-        switch s {
-        case .nat: c.network.mode = .nat
-        case .hostOnly: c.network.mode = .hostOnly
-        case .none: c.network.mode = .none
-        case .network(let name): c.network.mode = .network; c.network.networkName = name
-        case .bridged(let name): c.network.mode = .bridged; c.network.bridgeInterface = name
-        }
-        do { try controller.saveConfig(c) } catch { model.report(error) }
+        do {
+            try controller.updateConfig { c in
+                switch s {
+                case .nat: c.network.mode = .nat
+                case .hostOnly: c.network.mode = .hostOnly
+                case .none: c.network.mode = .none
+                case .network(let name): c.network.mode = .network; c.network.networkName = name
+                case .bridged(let name): c.network.mode = .bridged; c.network.bridgeInterface = name
+                }
+            }
+        } catch { model.report(error) }
     }
 
     private func saveFixedIP() {
@@ -141,7 +143,7 @@ struct NetworkAdapterSection: View {
             fixedIP = config.network.fixedIPv4 ?? ""
             return
         }
-        do { try controller.saveConfig(c) } catch {
+        do { try controller.updateConfig { $0.network.fixedIPv4 = c.network.fixedIPv4 } } catch {
             model.report(error)
             fixedIP = config.network.fixedIPv4 ?? ""
         }

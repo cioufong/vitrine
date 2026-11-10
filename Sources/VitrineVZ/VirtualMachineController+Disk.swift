@@ -136,9 +136,7 @@ extension VirtualMachineController {
     }
 
     private func finishDiskGrow(_ message: String) {
-        var c = (try? bundle.loadConfig()) ?? config
-        c.pendingDiskGrow = nil
-        try? saveConfig(c)
+        _ = try? updateConfig { $0.pendingDiskGrow = nil }
         log.write(message)
     }
 

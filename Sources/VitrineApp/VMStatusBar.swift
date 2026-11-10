@@ -137,9 +137,8 @@ struct VMStatusBar: View {
                              on: "arrow.up.left.and.arrow.down.right", off: "arrow.up.left.and.arrow.down.right",
                              help: config.display.autoResize ? "Display follows the window size — click to keep it fixed"
                                                              : "Display size fixed — click to follow the window") {
-                    var c = config
-                    c.display.autoResize.toggle()
-                    do { try controller.saveConfig(c) } catch { model.report(error) }
+                    let on = !config.display.autoResize // what the user saw and clicked
+                    do { try controller.updateConfig { $0.display.autoResize = on } } catch { model.report(error) }
                 }
             }
             Menu {
