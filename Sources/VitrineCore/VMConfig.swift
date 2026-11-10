@@ -138,6 +138,15 @@ public struct VMConfig: Codable, Equatable, Sendable {
         public var macAddress: String = randomMACAddress()
         /// Ports on the Mac forwarded into the guest.
         public var portForwards: [PortForward] = []
+
+        /// Six two-digit hex octets separated by ':' ("52:54:00:aa:bb:cc"), either case. ASCII only:
+        /// the address is spliced into QEMU's comma-separated -device option.
+        public static func isMACAddress(_ s: String) -> Bool {
+            let octets = s.utf8.split(separator: UInt8(ascii: ":"), omittingEmptySubsequences: false)
+            return octets.count == 6 && octets.allSatisfy { o in
+                o.count == 2 && o.allSatisfy { ($0 >= 0x30 && $0 <= 0x39) || ($0 | 0x20 >= 0x61 && $0 | 0x20 <= 0x66) }
+            }
+        }
         public init() {}
 
         public var isConnected: Bool { mode != .none }
@@ -406,6 +415,11 @@ public extension VMConfig {
         }
         if features.rosetta && effectiveBackend != .vz {
             throw VitrineError.invalidConfig("Rosetta for Linux is only available on the Virtualization.framework backend")
+        }
+        // The MAC ends up inside QEMU's comma-separated -device option (and VZMACAddress would drop
+        // a malformed one silently), so only a plain address is accepted.
+        guard NetworkConfig.isMACAddress(network.macAddress) else {
+            throw VitrineError.invalidConfig("MAC address \(network.macAddress.debugDescription) must be six hex pairs separated by ':' (52:54:00:aa:bb:cc)")
         }
         var forwarded = Set<String>()
         for f in network.portForwards {

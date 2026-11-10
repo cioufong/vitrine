@@ -147,6 +147,57 @@ final class QEMUArgumentsTests: XCTestCase {
         XCTAssertTrue(a.contains(",hostfwd=tcp:0.0.0.0:2222-:22"))
     }
 
+    /// A "x.iso" that is really a qcow2 or VMDK descriptor would otherwise be probed and could pull in
+    /// a host file (backing file / extent) the guest then reads.
+    func testCDROMDrivesAreRawAndEveryDriveNamesItsFormat() {
+        for (os, arch) in [(VMConfig.GuestOS.windows, VMConfig.Architecture.aarch64), (.linux, .aarch64),
+                           (.windows, .x86_64), (.linux, .x86_64)] {
+            var c = config(os, arch)
+            c.extraMedia = ["seed.iso", "virtio.iso"]
+            let args = QEMUArguments.build(config: c, bundle: bundle, env: env, sockets: sockets,
+                                           options: .init(withTPM: os == .windows))
+            let drives = args.indices.filter { args[$0] == "-drive" }.map { args[$0 + 1] }
+            let cdroms = drives.filter { $0.contains("media=cdrom") }
+            XCTAssertEqual(cdroms.count, 3, "\(os) \(arch)")
+            for d in drives {
+                let opts = d.components(separatedBy: ",")
+                XCTAssertEqual(opts.filter { $0.hasPrefix("format=") }, ["format=raw"], d)
+            }
+            XCTAssertFalse(args.contains("-blockdev"))
+            XCTAssertFalse(args.contains("-cdrom"))
+            XCTAssertFalse(args.contains("-hda"))
+        }
+    }
+
+    func testMACAddressCannotInjectDeviceProperties() {
+        let evil = "52:54:00:aa:bb:cc,romfile=/Users/x/.ssh/id_ed25519"
+        for (os, arch) in [(VMConfig.GuestOS.windows, VMConfig.Architecture.x86_64), (.linux, .aarch64)] {
+            var c = config(os, arch)
+            c.network.macAddress = evil
+            let a = joined(QEMUArguments.build(config: c, bundle: bundle, env: env, sockets: sockets, options: .init(withTPM: false)))
+            XCTAssertFalse(a.contains("romfile"), "\(os) \(arch)")
+            XCTAssertTrue(a.contains("netdev=net0"), "the adapter stays, with a MAC QEMU picks")
+            var o = QEMUArguments.Options(withTPM: false)
+            o.netdev = "vmnet-shared"
+            let v = joined(QEMUArguments.build(config: c, bundle: bundle, env: env, sockets: sockets, options: o))
+            XCTAssertFalse(v.contains("romfile"))
+            XCTAssertTrue(v.contains("netdev=net0"))
+        }
+        var c = config(.linux, .aarch64)
+        c.network.macAddress = "52:54:00:AA:bb:cc"
+        XCTAssertTrue(joined(QEMUArguments.build(config: c, bundle: bundle, env: env, sockets: sockets,
+                                                 options: .init(withTPM: false))).contains("virtio-net-pci,netdev=net0,mac=52:54:00:AA:bb:cc"))
+    }
+
+    func testSharedFolderPathIsEscapedForFsdev() {
+        var c = config(.linux, .aarch64)
+        c.shares = [.init(hostPath: "share,security_model=passthrough", name: "s")]
+        let args = QEMUArguments.build(config: c, bundle: VMBundle(url: URL(fileURLWithPath: "/vms/x,y.vitrinevm")),
+                                       env: env, sockets: sockets, options: .init(withTPM: false))
+        XCTAssertEqual(args[args.firstIndex(of: "-fsdev")! + 1],
+                       "local,id=fs0,path=/vms/x,,y.vitrinevm/share,,security_model=passthrough,security_model=none")
+    }
+
     func testResumeAddsIncoming() {
         let a = joined(QEMUArguments.build(config: config(.windows, .aarch64), bundle: bundle, env: env, sockets: sockets,
                                            options: .init(withTPM: true, incomingState: bundle.qemuStateURL)))

@@ -62,7 +62,12 @@ public enum UTMImporter {
             if UInt64(mib) > hostMiB { notes.append("reduced memory from \(mib) MiB to \(hostMiB) MiB, the amount this Mac has") }
         }
         if let mac = ((root["Network"] as? [[String: Any]])?.first?["MacAddress"] as? String)?.lowercased() {
-            config.network.macAddress = mac
+            // A malformed address (one carrying QEMU device options, say) keeps the random default.
+            if VMConfig.NetworkConfig.isMACAddress(mac) {
+                config.network.macAddress = mac
+            } else {
+                notes.append("the UTM VM's MAC address \(mac.debugDescription) isn't valid; gave it a new one (\(config.network.macAddress))")
+            }
         }
         if (root["Network"] as? [[String: Any]])?.isEmpty == true { config.network.mode = .none }
         let utmNetwork = (root["Network"] as? [[String: Any]])?.first
