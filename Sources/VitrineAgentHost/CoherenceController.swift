@@ -27,6 +27,12 @@ public final class CoherenceController {
     private var geometry: CoherenceGeometry?
     private var screen: NSScreen
     private var previousHandlers: (windows: (([WindowInfo]) -> Void)?, frame: ((Rect) -> Void)?, display: ((DisplayInfo) -> Void)?)
+    /// Whether the guest's focused window may become key at `start` wherever key is, for seamless
+    /// mode the user asked for. Not for automatic re-entry (e.g. after the agent reconnected),
+    /// which a guest could trigger to take focus from another VM (see `guestMayTakeKey`).
+    public var takesKeyOnStart = false
+    /// From `start` until the first window list, if `takesKeyOnStart`.
+    private var entering = false
 
     public init(session: AgentSession, screen: NSScreen) {
         self.session = session
@@ -41,6 +47,7 @@ public final class CoherenceController {
     public func start(maxFPS: Int = 60) {
         guard !isActive else { return }
         isActive = true
+        entering = takesKeyOnStart
         previousHandlers = (session.onWindowsChanged, session.onFrame, session.onDisplayChanged)
         session.onWindowsChanged = { [weak self] list in
             self?.previousHandlers.windows?(list)
@@ -155,9 +162,19 @@ public final class CoherenceController {
             }
             order = ids
         }
-        if let focused = list.first(where: \.isFocused), let w = windows[focused.id], NSApp.isActive, !w.isKeyWindow {
+        if let focused = list.first(where: \.isFocused), let w = windows[focused.id], NSApp.isActive, !w.isKeyWindow,
+           Self.guestMayTakeKey(keyWindowExists: NSApp.keyWindow != nil, keyWindowIsOurs: owns(NSApp.keyWindow), entering: entering) {
             w.makeKey()
         }
+        entering = false
+    }
+
+    /// Whether the guest's focus may make one of its windows key on the Mac. Only away from this
+    /// VM's own windows (or from none), or while entering seamless mode: a guest reporting focus
+    /// must not take the keyboard, and with it the Mac clipboard (`ClipboardFocusGate`), from
+    /// another VM's window or Vitrine's own.
+    nonisolated static func guestMayTakeKey(keyWindowExists: Bool, keyWindowIsOurs: Bool, entering: Bool) -> Bool {
+        entering || !keyWindowExists || keyWindowIsOurs
     }
 
     private func refresh(dirtyPixels: Rect) {

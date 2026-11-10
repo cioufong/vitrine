@@ -8,6 +8,26 @@ public enum ConfigurationBuilder {
     /// virtio-console port name the macOS/Linux SPICE agent looks for (clipboard).
     static let spicePortName = VZSpiceAgentPortAttachment.spiceAgentPortName
 
+    /// Whether a run gets VZ's SPICE agent port with clipboard sharing.
+    ///
+    /// That port shares the clipboard both ways at all times, whichever window is focused: VZ
+    /// offers no way to gate it. It exists for guests without the Vitrine agent (macOS 15+ guests
+    /// support it out of the box; Linux guests through spice-vdagent, which the cloud-image
+    /// installer adds). Once Vitrine has installed its own agent (`account.agentInstalled`), whose
+    /// clipboard only follows the Mac while the VM is focused (`ClipboardFocusGate`), the port is
+    /// left out, from the next boot from disk. Guests whose agent Vitrine didn't record (no
+    /// provisioned account, agent installed by hand) keep it: their clipboard stays shared at all
+    /// times.
+    ///
+    /// A saved state restores only into a matching configuration, so a restore follows what the
+    /// state was saved with (`savedMarker`): a VM that is only ever suspended and resumed keeps the
+    /// port it booted with. States saved before the marker existed had the port whenever clipboard
+    /// sharing was on.
+    public static func attachesSpiceClipboard(config: VMConfig, restoring: Bool, savedMarker: Bool?) -> Bool {
+        if restoring { return savedMarker ?? config.features.clipboard }
+        return config.features.clipboard && config.account?.agentInstalled != true
+    }
+
     /// virtiofs tag Linux guests mount shared folders from: `mount -t virtiofs vitrine /mnt/vitrine`.
     public static let linuxShareTag = "vitrine"
     public static let rosettaTag = "rosetta"
@@ -16,7 +36,10 @@ public enum ConfigurationBuilder {
     ///   (macOS 15+). A saved state made without one can only be restored without one.
     /// - Parameter networkAttachment: what the network adapter is plugged into (`NetworkLink`);
     ///   nil is the Mac's shared NAT network.
+    /// - Parameter spiceClipboard: add the SPICE clipboard port (`attachesSpiceClipboard`); nil
+    ///   decides from `config` for a fresh boot.
     public static func build(bundle: VMBundle, config: VMConfig, usbController: Bool = true,
+                             spiceClipboard: Bool? = nil,
                              networkAttachment: VZNetworkDeviceAttachment? = nil) throws -> VZVirtualMachineConfiguration {
         try config.validate(bundle: bundle)
         let vz = VZVirtualMachineConfiguration()
@@ -86,7 +109,7 @@ public enum ConfigurationBuilder {
             vz.usbControllers = [VZXHCIControllerConfiguration()]
         }
 
-        if config.features.clipboard {
+        if spiceClipboard ?? attachesSpiceClipboard(config: config, restoring: false, savedMarker: nil) {
             let console = VZVirtioConsoleDeviceConfiguration()
             let port = VZVirtioConsolePortConfiguration()
             port.name = spicePortName

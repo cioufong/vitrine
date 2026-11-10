@@ -89,9 +89,32 @@ final class AppModel: ObservableObject {
             MainActor.assumeIsolated { self?.refreshThumbnails() }
         }
         watchLibrary()
+        watchClipboardFocus()
     }
 
     private var libraryWatch: DispatchSourceFileSystemObject?
+    private var focusObservers: [NSObjectProtocol] = []
+
+    /// A VM shares the clipboard only while one of its windows is key in the active app (see
+    /// VirtualMachineController.setClipboardFocus). Recomputed from scratch on every key-window or
+    /// activation change, a turn of the run loop later, once AppKit has settled the new key window.
+    private func watchClipboardFocus() {
+        let names: [Notification.Name] = [NSWindow.didBecomeKeyNotification, NSWindow.didResignKeyNotification,
+                                          NSApplication.didBecomeActiveNotification, NSApplication.didResignActiveNotification]
+        focusObservers = names.map { name in
+            NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                DispatchQueue.main.async { MainActor.assumeIsolated { self?.updateClipboardFocus() } }
+            }
+        }
+    }
+
+    func updateClipboardFocus() {
+        let key = NSApp.isActive ? NSApp.keyWindow : nil
+        for (path, c) in controllers {
+            let focused = key.map { $0 === displayWindows[path] || coherence[path]?.owns($0) == true } ?? false
+            c.setClipboardFocus(focused)
+        }
+    }
 
     /// Re-lists the library when VMs are created, imported or deleted outside the app (vitrinectl).
     private func watchLibrary() {
@@ -142,7 +165,7 @@ final class AppModel: ObservableObject {
     /// agreed (QuitSequence). Returns false when the user chose to keep Vitrine open.
     func prepareVMsForQuit() async -> Bool {
         for c in activeControllers { captureThumbnail(c.bundle) }
-        for key in coherenceActive { exitCoherence(VMBundle(url: URL(fileURLWithPath: key))) }
+        for key in coherenceActive { exitCoherence(VMBundle(url: URL(fileURLWithPath: key)), takeKey: false) }
         // Let in-flight transitions (a suspend already saving, a VM still booting) settle first.
         let settle = Date().addingTimeInterval(120)
         while liveControllers.contains(where: { $0.state != .running && $0.state != .paused }), Date() < settle {
@@ -234,6 +257,8 @@ final class AppModel: ObservableObject {
         if let c = controllers[bundle.url.path] { return c }
         guard let c = try? VirtualMachineController(bundle: bundle) else { return nil }
         controllers[bundle.url.path] = c
+        // Its window may already be key (the notification came before the controller existed).
+        DispatchQueue.main.async { [weak self] in self?.updateClipboardFocus() }
         // Screenshots and input over the control socket use whichever view presents the guest.
         c.displayViewProvider = { [weak self] in
             guard let self else { return nil }
@@ -260,7 +285,7 @@ final class AppModel: ObservableObject {
                 if c.state != .running { self.coherenceDesired.remove(key) }
                 if self.coherenceDesired.contains(key), !self.coherenceActive.contains(key),
                    c.state == .running, c.agent?.guestHello != nil {
-                    self.enterCoherence(bundle)
+                    self.enterCoherence(bundle, userInitiated: false)
                 }
             }
         }
@@ -401,7 +426,9 @@ final class AppModel: ObservableObject {
                       message: String(localized: "The VM now asks you to let Vitrine Agent record the screen and control the computer, which seamless mode needs. Allow both there; the agent then restarts by itself to use them."))
     }
 
-    func enterCoherence(_ bundle: VMBundle) {
+    /// - Parameter userInitiated: the user asked for it (not an automatic re-entry), so the guest's
+    ///   focused window may take key from whatever window has it.
+    func enterCoherence(_ bundle: VMBundle, userInitiated: Bool = true) {
         guard let c = controllers[bundle.url.path], c.state == .running else { return }
         guard let session = c.agent, let hello = session.guestHello else {
             alert = .init(title: String(localized: "Vitrine Agent not connected"),
@@ -422,7 +449,7 @@ final class AppModel: ObservableObject {
         }
         guard let screen = displayWindows[bundle.url.path]?.screen ?? NSScreen.main else { return }
         if c.qemu != nil {
-            enterQEMUCoherence(bundle, controller: c, session: session, screen: screen)
+            enterQEMUCoherence(bundle, controller: c, session: session, screen: screen, userInitiated: userInitiated)
             return
         }
         guard let vm = c.virtualMachine else { return }
@@ -433,7 +460,7 @@ final class AppModel: ObservableObject {
         let px: (width: Int, height: Int, ppi: Int) = guestHiDPI
             ? CoherenceDisplay.pixels(for: screen)
             : (Int(screen.frame.width), Int(screen.frame.height), 110)
-        let cc = activateCoherence(bundle, controller: c, session: session, screen: screen)
+        let cc = activateCoherence(bundle, controller: c, session: session, screen: screen, userInitiated: userInitiated)
         // The VM window gets hidden; an invisible sink keeps the display presented (required for
         // reconfiguration) without resizing the guest to a window.
         vmView(for: bundle)?.virtualMachine = nil
@@ -451,8 +478,8 @@ final class AppModel: ObservableObject {
     /// Coherence for QEMU guests (Windows): no VZ display to keep presented; the guest is asked for
     /// the screen's size over VNC, and the geometry scales whatever mode the display driver picks.
     private func enterQEMUCoherence(_ bundle: VMBundle, controller c: VirtualMachineController, session: AgentSession,
-                                    screen: NSScreen) {
-        let cc = activateCoherence(bundle, controller: c, session: session, screen: screen)
+                                    screen: NSScreen, userInitiated: Bool) {
+        let cc = activateCoherence(bundle, controller: c, session: session, screen: screen, userInitiated: userInitiated)
         displayWindows[bundle.url.path]?.orderOut(nil)
         let size = (Int(screen.frame.width), Int(screen.frame.height))
         Task { [weak self, weak cc] in
@@ -466,8 +493,9 @@ final class AppModel: ObservableObject {
     /// Creates and registers the Coherence controller for `bundle`, wired to its session and VM.
     /// The caller starts it once the guest display fits `screen`.
     private func activateCoherence(_ bundle: VMBundle, controller c: VirtualMachineController, session: AgentSession,
-                                   screen: NSScreen) -> CoherenceController {
+                                   screen: NSScreen, userInitiated: Bool) -> CoherenceController {
         let cc = CoherenceController(session: session, screen: screen)
+        cc.takesKeyOnStart = userInitiated
         coherenceSessions[bundle.url.path] = session
         coherenceDesired.insert(bundle.url.path)
         cc.onExit = { [weak self] in self?.exitCoherence(bundle) }
@@ -482,11 +510,16 @@ final class AppModel: ObservableObject {
         return cc
     }
 
-    func exitCoherence(_ bundle: VMBundle, userInitiated: Bool = true) {
+    /// - Parameter takeKey: make the VM's display window key; by default when the user asked, or
+    ///   was in one of this VM's seamless windows.
+    func exitCoherence(_ bundle: VMBundle, userInitiated: Bool = true, takeKey: Bool? = nil) {
         let key = bundle.url.path
         if userInitiated { coherenceDesired.remove(key) }
         coherenceSessions[key] = nil
         guard coherenceActive.contains(key) else { return }
+        // Seamless mode ending by itself (agent dropped, VM stopped) must not take key, and with it
+        // the Mac clipboard, from another window, unless the user was in one of this VM's windows.
+        let takeKey = takeKey ?? (userInitiated || coherence[key]?.owns(NSApp.keyWindow) == true)
         coherence[key]?.stop()
         coherence[key] = nil
         coherenceActive.remove(key)
@@ -503,7 +536,8 @@ final class AppModel: ObservableObject {
         } else if let c = controllers[key], c.state == .running, !c.config.display.autoResize {
             c.reconfigureDisplay(widthPixels: c.config.display.widthPixels, heightPixels: c.config.display.heightPixels)
         }
-        displayWindows[key]?.makeKeyAndOrderFront(nil)
+        if takeKey { displayWindows[key]?.makeKeyAndOrderFront(nil) } else { displayWindows[key]?.orderFront(nil) }
+        updateClipboardFocus()
     }
 
     // MARK: View modes

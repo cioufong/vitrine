@@ -17,6 +17,23 @@ public struct VMBundle: Sendable, Hashable {
     /// Present next to a VZ saved state that was made with an xHCI controller (states saved by
     /// older Vitrine versions have none, and VZ only restores into a matching configuration).
     public var savedStateUSBMarkerURL: URL { url.appendingPathComponent("state.usb") }
+    /// Next to a VZ saved state: "1" if it was made with the SPICE clipboard port, "0" without
+    /// (VZ only restores into a matching configuration). States from older versions have none.
+    public var savedStateSpiceMarkerURL: URL { url.appendingPathComponent("state.spice") }
+
+    /// Whether the saved state was made with the SPICE clipboard port; nil if not recorded.
+    public var savedStateSpiceClipboard: Bool? {
+        guard let data = try? Data(contentsOf: savedStateSpiceMarkerURL) else { return nil }
+        switch String(decoding: data, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines) {
+        case "1": return true
+        case "0": return false
+        default: return nil
+        }
+    }
+
+    public func recordSavedStateSpiceClipboard(_ attached: Bool) throws {
+        try Data((attached ? "1" : "0").utf8).write(to: savedStateSpiceMarkerURL, options: .atomic)
+    }
     /// USB drives/devices attached when the VM was suspended; plugged in again on resume.
     public var suspendedUSBURL: URL { url.appendingPathComponent("usb-attachments.json") }
     /// Secret the host presents in its Hello to agents reachable over TCP (Windows on QEMU), which
@@ -58,7 +75,7 @@ public struct VMBundle: Sendable, Hashable {
     /// Deletes the suspended state (memory, USB marker, drives to plug back in), so the next start
     /// boots from disk.
     public func discardSavedState() {
-        for file in [savedStateURL, qemuStateURL, savedStateUSBMarkerURL, suspendedUSBURL] {
+        for file in [savedStateURL, qemuStateURL, savedStateUSBMarkerURL, savedStateSpiceMarkerURL, suspendedUSBURL] {
             try? FileManager.default.removeItem(at: file)
         }
     }

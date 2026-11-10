@@ -59,7 +59,7 @@ unless you allow them (see the security note in [docs/mcp.md](docs/mcp.md#securi
 | Snapshots | APFS clones of bundle-contained disks, optional memory state; see snapshot safety below |
 | Suspend / resume | VZ and QEMU, including Windows on Arm |
 | Quit behavior | Suspends running VMs by default; reports failures instead of silently discarding state |
-| Clipboard | macOS: text, RTF, HTML, images; Linux/Windows: text and PNG |
+| Clipboard | macOS: text, RTF, HTML, images; Linux/Windows: text and PNG. Through the Vitrine agent the Mac clipboard reaches a VM only while its window (or one of its seamless windows) is focused, and the guest may set the Mac clipboard only then or within 2 s after; content password managers mark concealed or transient is never shared. VZ guests without a Vitrine agent installed by Vitrine use VZ's SPICE clipboard, which is shared at all times; it goes away at the first boot from disk (not a resume) after Vitrine installs its agent |
 | Drag files into the VM | macOS and Windows guests; Linux guest file receiving remains on the roadmap |
 | Shared folders | virtiofs for VZ guests; Samba for Windows guests |
 | GPU | Metal for macOS guests; Linux and Windows use 2D displays, with 3D still on the roadmap |

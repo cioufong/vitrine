@@ -58,5 +58,7 @@ final class ConfigCompatibilityTests: XCTestCase {
     func testSnapshotsKeepUSBStateWithSavedMemory() {
         XCTAssertTrue(SnapshotStore.memoryFiles.contains("state.usb"))
         XCTAssertTrue(SnapshotStore.memoryFiles.contains("usb-attachments.json"))
+        // Whether the state has the SPICE clipboard port: without it a restore would guess.
+        XCTAssertTrue(SnapshotStore.memoryFiles.contains("state.spice"))
     }
 }

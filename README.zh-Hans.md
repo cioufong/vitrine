@@ -42,7 +42,7 @@ claude mcp add vitrine -- "$PWD/.build/release/vitrinectl" mcp  # 或任意 MCP 
 | 快照 | 对虚拟机包内磁盘进行 APFS 克隆，可选保存内存状态；参见下文“快照安全” |
 | 挂起／恢复 | VZ 和 QEMU，包括 Windows on Arm |
 | 退出行为 | 默认挂起正在运行的虚拟机；失败时会报告，而不是悄悄丢弃状态 |
-| 剪贴板 | macOS：文本、RTF、HTML、图像；Linux/Windows：文本和 PNG |
+| 剪贴板 | macOS：文本、RTF、HTML、图像；Linux/Windows：文本和 PNG。通过 Vitrine 代理时，只有虚拟机窗口（或其无缝模式窗口）处于焦点时才把 Mac 剪贴板发给它，客户机也只能在此时或失去焦点后 2 秒内改写 Mac 剪贴板；密码管理器标为隐藏或临时的内容一律不共享。未由 Vitrine 安装代理的 VZ 客户机使用 VZ 的 SPICE 剪贴板，始终共享；Vitrine 装好代理后，下次从磁盘启动（而非从挂起恢复）时才移除 |
 | 将文件拖入虚拟机 | macOS 和 Windows 客户机；Linux 客户机接收文件仍在路线图中 |
 | 共享文件夹 | VZ 客户机使用 virtiofs；Windows 客户机使用 Samba |
 | GPU | macOS 客户机使用 Metal；Linux 和 Windows 使用 2D 显示，3D 仍在路线图中 |

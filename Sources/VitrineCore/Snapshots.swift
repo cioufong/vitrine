@@ -46,8 +46,9 @@ public struct SnapshotStore: Sendable {
     /// Machine-state files that hold guest RAM. Exactly the ones captured in a snapshot may exist
     /// after restoring it: a newer save must never be loaded against reverted disks.
     /// The USB marker (was the state saved with an xHCI controller?) and the attachments to plug
-    /// back in belong to the saved RAM and must live and die with it.
-    static let memoryFiles = ["state.vzvmsave", "state.qemusave", "state.usb", "usb-attachments.json"]
+    /// back in belong to the saved RAM and must live and die with it, as does the SPICE marker (was
+    /// it saved with the SPICE clipboard port?).
+    static let memoryFiles = ["state.vzvmsave", "state.qemusave", "state.usb", "state.spice", "usb-attachments.json"]
 
     private static let persistentFiles = ["config.json", "aux-storage.bin", "hardware-model.bin",
         "machine-identifier.bin", "nvram.bin", "efivars.fd", "efivars.secureboot", "tpm"]

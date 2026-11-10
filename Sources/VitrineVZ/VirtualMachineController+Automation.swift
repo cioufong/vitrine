@@ -108,8 +108,9 @@ extension VirtualMachineController {
 
     /// Pastes text into whatever has focus: each run of it through the guest clipboard and ⌘V on
     /// the VM's keyboard, newlines and tabs as the Return and Tab keys (a pasted newline doesn't
-    /// run a shell command). With clipboard sharing on, the guest clipboard then gets the Mac's
-    /// content back, which it held before; otherwise the pasted text stays on it.
+    /// run a shell command). With clipboard sharing on and the VM's window focused, the guest
+    /// clipboard then gets the Mac's content back, which it held before; otherwise the pasted text
+    /// stays on it.
     private func pasteText(_ pieces: [PastedText.Piece], through agent: AgentSession, until deadline: Date) async throws {
         let view = try automationView()
         for piece in pieces {
@@ -124,7 +125,8 @@ extension VirtualMachineController {
                 try await Task.sleep(nanoseconds: 500_000_000) // the app reads the pasteboard while handling ⌘V
             }
         }
-        if let shared = pasteboard?.snapshot() { _ = agent.send(.clipboard(shared)) }
+        // Only to a focused VM: a background VM never gets the Mac clipboard.
+        if clipboardGate.allowsSending, let shared = pasteboard?.snapshot() { _ = agent.send(.clipboard(shared)) }
     }
 
     /// Input queued behind other input belongs to the run that accepted it: a VM stopped and started
