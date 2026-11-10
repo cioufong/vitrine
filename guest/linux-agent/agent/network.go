@@ -10,6 +10,11 @@ import (
 	"github.com/cioufong/vitrine/guest/linux-agent/protocol"
 )
 
+// maxAddressesPerFamily is the host's limit per interface, for IPv4 and IPv6
+// separately. Older hosts reject the whole report (and drop the
+// connection) when an interface goes over it.
+const maxAddressesPerFamily = 32
+
 // NetworkPollInterval is how often the interface list is checked for changes.
 var NetworkPollInterval = 10 * time.Second
 
@@ -26,20 +31,8 @@ func networkSnapshot() protocol.GuestNetwork {
 		if ifc.Flags&net.FlagLoopback != 0 || len(ifc.HardwareAddr) != 6 {
 			continue
 		}
-		n := protocol.NetInterface{Name: ifc.Name, MAC: strings.ToLower(ifc.HardwareAddr.String()),
-			IPv4: []string{}, IPv6: []string{}}
 		addrs, _ := ifc.Addrs()
-		for _, a := range addrs {
-			ipn, ok := a.(*net.IPNet)
-			if !ok {
-				continue
-			}
-			if v4 := ipn.IP.To4(); v4 != nil {
-				n.IPv4 = append(n.IPv4, v4.String())
-			} else if !ipn.IP.IsLinkLocalUnicast() {
-				n.IPv6 = append(n.IPv6, ipn.IP.String())
-			}
-		}
+		n := interfaceEntry(ifc.Name, ifc.HardwareAddr, addrs)
 		if len(n.IPv4)+len(n.IPv6) > 0 {
 			out.Interfaces = append(out.Interfaces, n)
 		}
@@ -49,6 +42,27 @@ func networkSnapshot() protocol.GuestNetwork {
 		out.Interfaces = out.Interfaces[:16]
 	}
 	return out
+}
+
+// interfaceEntry is one interface's report: its first IPv4 addresses and its
+// first non-link-local IPv6 addresses, up to maxAddressesPerFamily each.
+func interfaceEntry(name string, mac net.HardwareAddr, addrs []net.Addr) protocol.NetInterface {
+	n := protocol.NetInterface{Name: name, MAC: strings.ToLower(mac.String()),
+		IPv4: []string{}, IPv6: []string{}}
+	for _, a := range addrs {
+		ipn, ok := a.(*net.IPNet)
+		if !ok {
+			continue
+		}
+		if v4 := ipn.IP.To4(); v4 != nil {
+			if len(n.IPv4) < maxAddressesPerFamily {
+				n.IPv4 = append(n.IPv4, v4.String())
+			}
+		} else if !ipn.IP.IsLinkLocalUnicast() && len(n.IPv6) < maxAddressesPerFamily {
+			n.IPv6 = append(n.IPv6, ipn.IP.String())
+		}
+	}
+	return n
 }
 
 // networkLoop reports the interface list now and whenever it changes, until

@@ -509,6 +509,8 @@ private struct SnapshotsPane: View {
     let bundle: VMBundle
     @ObservedObject var controller: VirtualMachineController
     @State private var snapshots: [Snapshot] = []
+    /// The baseline of an unfinished disposable run: needed to discard that run, so not deletable.
+    @State private var disposableBaseline: UUID?
     @State private var selection: UUID?
     @State private var newName = ""
     @State private var confirmRestore: Snapshot?
@@ -539,7 +541,7 @@ private struct SnapshotsPane: View {
                     .tag(s.id)
                     .contextMenu {
                         Button("Go to Snapshot…") { confirmRestore = s }.disabled(!canModify)
-                        Button("Delete", role: .destructive) { delete(s) }
+                        Button("Delete", role: .destructive) { delete(s) }.disabled(s.id == disposableBaseline)
                     }
                 }
             }
@@ -552,7 +554,7 @@ private struct SnapshotsPane: View {
                 Button("Go To") { confirmRestore = snapshots.first { $0.id == selection } }
                     .disabled(!canModify || selection == nil)
                 Button("Delete") { if let s = snapshots.first(where: { $0.id == selection }) { delete(s) } }
-                    .disabled(selection == nil)
+                    .disabled(selection == nil || selection == disposableBaseline)
             }
             .padding(10)
             if !canModify {
@@ -569,7 +571,10 @@ private struct SnapshotsPane: View {
         }
     }
 
-    func reload() { snapshots = SnapshotStore(bundle: bundle).list() }
+    func reload() {
+        snapshots = SnapshotStore(bundle: bundle).list()
+        disposableBaseline = DisposableSession(bundle: bundle).baselineSnapshotID
+    }
 
     func take() {
         do { _ = try SnapshotStore(bundle: bundle).create(name: newName.trimmingCharacters(in: .whitespaces)); newName = ""; reload() }
