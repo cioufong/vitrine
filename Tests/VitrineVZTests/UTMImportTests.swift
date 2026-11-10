@@ -47,7 +47,7 @@ final class UTMImportTests: XCTestCase {
 
         let r = try UTMImporter.importVM(utm, name: nil)
         let c = try r.bundle.loadConfig()
-        XCTAssertEqual(c.name, "Debian Box")
+        XCTAssertEqual(c.name, "Debian-Box") // sanitised: the name becomes the bundle path
         XCTAssertEqual(c.guestOS, .linux)
         XCTAssertEqual(c.effectiveBackend, .vz)
         XCTAssertEqual(c.cpuCount, 2)

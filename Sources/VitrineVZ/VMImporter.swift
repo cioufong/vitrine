@@ -17,6 +17,10 @@ public enum VMImporter {
     /// Virtualization.framework; Windows and x86_64 guests on QEMU.
     @discardableResult
     public static func importDisk(_ disk: URL, _ o: DiskOptions) throws -> VMBundle {
+        // The name becomes the bundle's path: check it before building one from it.
+        guard VMCreationJob.isValidVMName(o.name) else {
+            throw VitrineError.invalidConfig("\(o.name.debugDescription) is not a valid VM name (letters, digits, '.', '-' and '_', up to 64, starting with a letter or digit)")
+        }
         var config = VMConfig(name: o.name, guestOS: o.guestOS, cpuCount: o.cpuCount, memoryMiB: o.memoryMiB)
         guard o.guestOS != .macOS else {
             throw VitrineError.unsupported("a macOS disk alone can't be imported (it needs its platform identity); import the whole VM bundle instead")
