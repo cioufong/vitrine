@@ -102,8 +102,9 @@ that never granted the Vitrine agent Accessibility access.
   instead: the agent puts each line on the guest clipboard and the VM's keyboard presses ⌘V (neither
   needs a permission), with Return and Tab pressed between lines. That takes about a second per line,
   so one call pastes at most 20 lines, and fields that refuse pasting (some password fields) stay
-  empty. With clipboard sharing on, the guest clipboard gets the Mac's content back afterwards; the
-  pasted text never reaches the Mac's clipboard.
+  empty. With clipboard sharing on and the VM's window focused, the guest clipboard gets the Mac's
+  content back afterwards; otherwise the pasted text stays on it (a VM that isn't focused never gets
+  the Mac's clipboard). The pasted text never reaches the Mac's clipboard.
 
 `method: "auto"` (the default) uses the keyboard when it can type every character and the agent
 otherwise; if neither can, the call fails and says why. `vitrinectl keys <vm> --text … --via

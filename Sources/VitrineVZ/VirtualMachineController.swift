@@ -154,10 +154,17 @@ public final class VirtualMachineController: NSObject, ObservableObject {
         do {
             let restoring = hasSavedState && !recovery
             let withUSB = !restoring || FileManager.default.fileExists(atPath: bundle.savedStateUSBMarkerURL.path)
+            let withSpice = ConfigurationBuilder.attachesSpiceClipboard(config: config, restoring: restoring,
+                                                                        savedMarker: bundle.savedStateSpiceClipboard)
             networkLink = try await Self.openNetworkLink(bundle: bundle, config: config, qemu: false)
             if let link = networkLink { log.write("network: \(link.summary)") }
             let vzConfig = try ConfigurationBuilder.build(bundle: bundle, config: config, usbController: withUSB,
+                                                          spiceClipboard: withSpice,
                                                           networkAttachment: networkLink?.vzAttachment)
+            spiceClipboardThisRun = withSpice
+            if withSpice, config.features.clipboard {
+                log.write("clipboard: SPICE agent port attached (shared at all times, not only while focused)")
+            }
             // What the configuration really has (no xHCI before macOS 15), not what was asked for.
             let hasUSBController: Bool
             if #available(macOS 15, *) { hasUSBController = !vzConfig.usbControllers.isEmpty } else { hasUSBController = false }
@@ -171,6 +178,7 @@ public final class VirtualMachineController: NSObject, ObservableObject {
                     // A recovery boot can modify the disk; the old RAM image would no longer match it.
                     try? FileManager.default.removeItem(at: bundle.savedStateURL)
                     try? FileManager.default.removeItem(at: bundle.savedStateUSBMarkerURL)
+                    try? FileManager.default.removeItem(at: bundle.savedStateSpiceMarkerURL)
                     try? FileManager.default.removeItem(at: bundle.suspendedUSBURL)
                     log.write("discarded saved state for a recovery boot")
                 }
@@ -297,6 +305,7 @@ public final class VirtualMachineController: NSObject, ObservableObject {
             try await vm.resume()
             try? FileManager.default.removeItem(at: bundle.savedStateURL)
             try? FileManager.default.removeItem(at: bundle.savedStateUSBMarkerURL)
+            try? FileManager.default.removeItem(at: bundle.savedStateSpiceMarkerURL)
             log.write("resumed from saved state")
         } catch {
             // Never throw away a suspended session on our own: the failure may be temporary. VZ
@@ -436,6 +445,7 @@ public final class VirtualMachineController: NSObject, ObservableObject {
             } else {
                 try? FileManager.default.removeItem(at: bundle.savedStateUSBMarkerURL)
             }
+            try bundle.recordSavedStateSpiceClipboard(spiceClipboardThisRun)
             try saveSuspendedUSB(unplugged)
             if vm.canStop { try await vm.stop() }
             log.write("suspended")
@@ -444,6 +454,7 @@ public final class VirtualMachineController: NSObject, ObservableObject {
         } catch {
             try? FileManager.default.removeItem(at: bundle.savedStateURL)
             try? FileManager.default.removeItem(at: bundle.savedStateUSBMarkerURL)
+            try? FileManager.default.removeItem(at: bundle.savedStateSpiceMarkerURL)
             try? FileManager.default.removeItem(at: bundle.suspendedUSBURL)
             if vm.state == .paused { try? await vm.resume() }
             state = vm.state == .running ? .running : .error
@@ -734,7 +745,16 @@ public final class VirtualMachineController: NSObject, ObservableObject {
             }
         }
         session.onLog = { [weak self] in self?.log.write($0) }
-        session.onClipboard = { [weak self] content in self?.pasteboard?.apply(content) }
+        session.onClipboard = { [weak self, weak session] content in
+            guard let self, let session, self.agent === session else { return }
+            guard self.clipboardGate.acceptsGuestClipboard(at: Date()) else {
+                self.log.write("clipboard from the guest dropped: the VM isn't focused")
+                return
+            }
+            if self.pasteboard?.apply(content) == false {
+                self.log.write("clipboard from the guest dropped: nothing shareable, or over \(PasteboardSync.maxBytes >> 20) MB")
+            }
+        }
         session.onGuestStats = { [weak self] stats in self?.guestStats = stats }
         session.onCameraStatus = { [weak self, weak session] status in
             guard let self, let session, self.agent === session else { return }
@@ -836,15 +856,48 @@ public final class VirtualMachineController: NSObject, ObservableObject {
         }
     }
 
-    /// Host ⇄ guest clipboard through the agent (text, RTF, HTML, images).
+    /// Host ⇄ guest clipboard through the agent (text, RTF, HTML, images). It only polls the Mac
+    /// pasteboard while the VM is focused (`clipboardGate`).
     private(set) var pasteboard: PasteboardSync?
+    /// Whether this VM's window is focused, for clipboard sharing (`setClipboardFocus`). Kept
+    /// across agent reconnects.
+    private(set) var clipboardGate = ClipboardFocusGate()
+    /// Whether the current VZ run has the SPICE clipboard port (recorded with a saved state).
+    private var spiceClipboardThisRun = false
+
+    /// Tells the controller whether one of this VM's windows (its display window or a seamless
+    /// window) is key while Vitrine is the active app. Only then is the Mac clipboard sent to the
+    /// guest: once on gaining focus, then each change. The guest may set the Mac clipboard while
+    /// focused and for `ClipboardFocusGate.defaultGrace` seconds after. Without a window (e.g.
+    /// `vitrinectl run`) a VM is never focused and its agent shares no clipboard.
+    public func setClipboardFocus(_ focused: Bool) {
+        guard clipboardGate.setFocused(focused, at: Date()) else { return }
+        updateClipboardPolling()
+    }
+
+    public var clipboardFocused: Bool { clipboardGate.isFocused }
 
     private func startClipboardSync(_ session: AgentSession) {
         pasteboard?.stop()
         let sync = PasteboardSync()
-        sync.onLocalChange = { [weak session] content in session?.send(.clipboard(content)) }
-        sync.start()
+        sync.onLocalChange = { [weak self, weak session] content in
+            guard let self, let session, self.agent === session, self.clipboardGate.allowsSending else { return }
+            session.send(.clipboard(content))
+        }
         pasteboard = sync
+        updateClipboardPolling()
+    }
+
+    /// Polls the Mac pasteboard only while focused, sending what it holds when focus arrives.
+    private func updateClipboardPolling() {
+        guard let sync = pasteboard else { return }
+        if clipboardGate.allowsSending {
+            guard !sync.isRunning else { return }
+            sync.start()
+            sync.sendCurrent()
+        } else {
+            sync.stop()
+        }
     }
 
     /// Whether a connected macOS agent still lacks a permission seamless mode needs (Screen

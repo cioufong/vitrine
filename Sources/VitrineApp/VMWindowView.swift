@@ -58,6 +58,7 @@ private struct VMWindowContent: View {
         }
         .background(WindowAccessor { window in
             model.displayWindows[bundle.url.path] = window
+            model.updateClipboardFocus() // it may have become key before it was known as this VM's
             window.tabbingMode = .disallowed
             window.titlebarAppearsTransparent = false
             NotificationCenter.default.addObserver(forName: NSWindow.willCloseNotification, object: window, queue: .main) { _ in

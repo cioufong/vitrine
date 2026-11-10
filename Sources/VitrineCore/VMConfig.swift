@@ -225,7 +225,9 @@ public struct VMConfig: Codable, Equatable, Sendable {
     }
 
     public struct Features: Codable, Equatable, Sendable {
-        /// Clipboard sharing (SPICE agent port + Vitrine agent).
+        /// Clipboard sharing. Through the Vitrine agent it only follows the Mac while the VM is
+        /// focused (ClipboardFocusGate); VZ's ungated SPICE port is only added for guests without
+        /// a recorded Vitrine agent (ConfigurationBuilder.attachesSpiceClipboard).
         public var clipboard: Bool = true
         /// Seamless per-window integration through the Vitrine guest agent.
         public var coherence: Bool = true

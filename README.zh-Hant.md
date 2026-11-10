@@ -58,7 +58,7 @@ claude mcp add vitrine -- "$PWD/.build/release/vitrinectl" mcp  # 或任何 MCP 
 | 快照 | 以 APFS 複製套件內的磁碟，可選擇一併保存記憶體狀態；請見下方的快照安全性 |
 | 休眠／繼續執行 | VZ 與 QEMU，包含 Windows on Arm |
 | 結束 App 時的行為 | 預設會讓執行中的虛擬機器休眠；失敗時會回報，而不是默默丟棄狀態 |
-| 剪貼簿 | macOS：文字、RTF、HTML、影像；Linux／Windows：文字與 PNG |
+| 剪貼簿 | macOS：文字、RTF、HTML、影像；Linux／Windows：文字與 PNG。透過 Vitrine agent 時，只有虛擬機器視窗（或其無縫模式視窗）在前景時才把 Mac 剪貼簿傳給它，客體系統也只能在此時或失焦後 2 秒內改寫 Mac 剪貼簿；密碼管理器標為隱藏或暫時的內容一律不分享。未由 Vitrine 安裝 agent 的 VZ 客體系統使用 VZ 的 SPICE 剪貼簿，隨時都會共享；Vitrine 裝好 agent 後，下次從磁碟開機（不是從休眠繼續）才會移除 |
 | 把檔案拖進虛擬機器 | macOS 與 Windows 客體系統；Linux 客體系統接收檔案仍在開發藍圖上 |
 | 共享資料夾 | VZ 客體系統用 virtiofs；Windows 客體系統用 Samba |
 | GPU | macOS 客體系統用 Metal；Linux 與 Windows 使用 2D 顯示，3D 仍在開發藍圖上 |
