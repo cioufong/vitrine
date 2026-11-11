@@ -279,7 +279,11 @@ extension WholeVMImporter {
         if let n = (platform?.child("CPU")?["count"] ?? hw?.child("CPU")?["count"]).flatMap({ Int($0) }) { f.cpus = n }
         else if f.cpus == nil, hw?.child("CPU") != nil || platform?.child("CPU") != nil { f.cpus = 1 }
         if let fw = hw?.child("Firmware")?["type"] { f.firmware = fw } else if f.firmware == nil { f.firmware = "BIOS (not set)" }
-        let adapters = (hw?.child("Network")?.all("Adapter") ?? []).sorted { Int($0["slot"] ?? "") ?? 0 < Int($1["slot"] ?? "") ?? 0 }
+        let adapters = (hw?.child("Network")?.all("Adapter") ?? []).sorted { (a: ImportXML, b: ImportXML) -> Bool in
+            let x: Int = Int(a["slot"] ?? "") ?? 0
+            let y: Int = Int(b["slot"] ?? "") ?? 0
+            return x < y
+        }
         if let nic = adapters.first(where: { $0["enabled"] != "false" && $0["MACAddress"] != nil }) { f.mac = nic["MACAddress"] }
         guard disks else { return }
 
@@ -295,9 +299,12 @@ extension WholeVMImporter {
         if let reg = machine.at("MediaRegistry/HardDisks") { walk(reg, parent: nil) }
         let controllers = hw?.child("StorageControllers") ?? machine.child("StorageControllers")
         for c in controllers?.all("StorageController") ?? [] {
-            let devices = c.all("AttachedDevice").sorted {
-                (Int($0["port"] ?? "") ?? 0, Int($0["device"] ?? "") ?? 0) < (Int($1["port"] ?? "") ?? 0, Int($1["device"] ?? "") ?? 0)
+            func position(_ d: ImportXML) -> (Int, Int) {
+                let port: Int = Int(d["port"] ?? "") ?? 0
+                let device: Int = Int(d["device"] ?? "") ?? 0
+                return (port, device)
             }
+            let devices = c.all("AttachedDevice").sorted { position($0) < position($1) }
             for dev in devices {
                 let slot = "\(c["name"] ?? "controller") port \(dev["port"] ?? "?")"
                 guard dev["type"] == "HardDisk" else {
