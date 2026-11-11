@@ -83,6 +83,10 @@ struct VitrineCommands: Commands {
             }
             .keyboardShortcut("i", modifiers: [.command, .shift])
         }
+        CommandGroup(replacing: .appTermination) {
+            // Not the stock item: AppKit refuses to quit while the import sheet is up (see requestQuit).
+            Button("Quit Vitrine") { model.requestQuit() }.keyboardShortcut("q")
+        }
         CommandGroup(after: .windowArrangement) {
             Button("Control Center") { openWindow(id: "control-center") }.keyboardShortcut("1", modifiers: [.command, .option])
         }
@@ -171,7 +175,7 @@ struct StatusMenu: View {
         Divider()
         Button("New…") { openWindow(id: "assistant"); NSApp.activate() }
         Button("Import…") { openWindow(id: "control-center"); NSApp.activate(); model.chooseImportSource() }
-        Button("Quit Vitrine") { NSApp.terminate(nil) }
+        Button("Quit Vitrine") { model.requestQuit() }
     }
 }
 
@@ -262,16 +266,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let removeDockIcons = { MainActor.assumeIsolated { for b in model.bundles { GuestAppDock.shared.removeAll(b) } } }
         // An import under way is stopped (its half-made VM removed) before quitting, once the user agrees.
         let importing = MainActor.assumeIsolated { model.importSession.isBusy }
-        if importing {
-            let alert = NSAlert()
-            alert.messageText = String(localized: "A virtual machine is being imported")
-            alert.informativeText = String(localized: "Quitting stops the import and removes the partly imported virtual machine. The original is not changed.")
-            alert.addButton(withTitle: String(localized: "Keep Vitrine Open"))
-            alert.addButton(withTitle: String(localized: "Stop Import and Quit"))
-            alert.alertStyle = .warning
-            NSApp.activate()
-            if alert.runModal() == .alertFirstButtonReturn { return .terminateCancel }
-        }
+        if importing, !MainActor.assumeIsolated({ AppModel.confirmStoppingImport() }) { return .terminateCancel }
         guard importing || !model.liveControllers.isEmpty else { removeDockIcons(); return .terminateNow }
         // VMs with a drive attached can't be suspended safely: ask before shutting them down.
         let blocked = MainActor.assumeIsolated { model.activeControllers.filter { $0.suspendBlocker != nil } }
