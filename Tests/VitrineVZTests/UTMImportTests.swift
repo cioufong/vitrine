@@ -2,6 +2,7 @@ import Foundation
 import XCTest
 @testable import VitrineVZ
 @testable import VitrineCore
+import VitrineQEMU
 
 /// Builds UTM bundles (configuration version 4) on disk and imports them into a throwaway library.
 final class UTMImportTests: XCTestCase {
@@ -89,9 +90,41 @@ final class UTMImportTests: XCTestCase {
         XCTAssertEqual(c.network.mode, .hostOnly)
         XCTAssertEqual(c.disks.count, 1, "the CD is left out")
         XCTAssertEqual(DiskImage.virtualSize(of: r.bundle.resolve("disk.img")), 64 << 20)
-        XCTAssertEqual(try Data(contentsOf: r.bundle.efiVarsURL), Data("vars".utf8))
+        // A variable store that isn't the 64 MiB QEMU's virt machine needs is left out, with a note.
+        XCTAssertFalse(fm.fileExists(atPath: r.bundle.efiVarsURL.path))
+        XCTAssertTrue(r.notes.contains { $0.contains("UEFI variables") }, "\(r.notes)")
+        XCTAssertFalse(QEMUEnvironment.variableStoreFits(size: 655_360, .aarch64))
+        XCTAssertTrue(QEMUEnvironment.variableStoreFits(size: 64 << 20, .aarch64))
         XCTAssertEqual(try Data(contentsOf: r.bundle.tpmStateDirectory.appendingPathComponent("tpm2-00.permall")), Data("tpm".utf8))
         XCTAssertTrue(r.notes.contains { $0.contains("CD image") })
+    }
+
+    /// UTM keeps the UEFI variable store as a qcow2 image of the 64 MiB flash: imported as raw.
+    func testQEMUVariableStoreIsConvertedToRaw() throws {
+        let qemuImg = URL(fileURLWithPath: "/opt/homebrew/bin/qemu-img")
+        guard fm.isExecutableFile(atPath: qemuImg.path) else { throw XCTSkip("qemu-img not installed") }
+        let utm = try makeUTM("Arch", [
+            "Backend": "QEMU", "ConfigurationVersion": 4,
+            "Information": ["Name": "Arch", "Icon": "arch-linux", "IconCustom": false],
+            "System": ["Architecture": "aarch64", "CPUCount": 0, "MemorySize": 1024, "Target": "virt"],
+            "QEMU": ["UEFIBoot": true],
+            "Drive": [["ImageName": "root.qcow2", "ImageType": "Disk", "Interface": "VirtIO", "Identifier": UUID().uuidString]],
+            "Network": [["Mode": "Shared", "Hardware": "virtio-net-pci", "MacAddress": "AA:BB:CC:DD:EE:03"]],
+        ], data: [:])
+        for (file, size) in [("root.qcow2", "64M"), ("efi_vars.fd", "64M")] {
+            let p = Process()
+            p.executableURL = qemuImg
+            p.arguments = ["create", "-q", "-f", "qcow2", utm.appendingPathComponent("Data/\(file)").path, size]
+            try p.run(); p.waitUntilExit()
+        }
+        let r = try UTMImporter.importVM(utm, name: "arch")
+        let vars = try Data(contentsOf: r.bundle.efiVarsURL)
+        XCTAssertEqual(vars.count, 64 << 20, "raw, the size of the flash")
+        XCTAssertNotEqual(vars.prefix(4), Data([0x51, 0x46, 0x49, 0xfb]), "not left as qcow2")
+        XCTAssertFalse(r.notes.contains { $0.contains("UEFI variables") }, "\(r.notes)")
+        // UTM's own images ask for 1 GiB, under Vitrine's minimum: raised, not refused.
+        XCTAssertEqual(try r.bundle.loadConfig().memoryMiB, VMConfig.minimumMemoryMiB)
+        XCTAssertTrue(r.notes.contains { $0.contains("raised memory from 1024 MiB") }, "\(r.notes)")
     }
 
     func testBridgedNetworkKeepsItsInterface() throws {
