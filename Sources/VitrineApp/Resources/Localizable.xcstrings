@@ -10994,24 +10994,24 @@
         }
       }
     },
-    "Windows starts on a basic display at a fixed resolution. After installing the virtio-win drivers in Windows, turn off Basic display under Configuration ▸ Display.": {
+    "Windows starts on a basic display at a fixed resolution. After installing the virtio-win drivers in Windows, turn off Basic display under Configuration ▸ Graphics.": {
       "localizations": {
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "Windows は固定解像度の基本ディスプレイで起動します。Windows に virtio-win ドライバをインストールしたら、「構成」▸「ディスプレイ」で「基本ディスプレイ」をオフにしてください。"
+            "value": "Windows は固定解像度の基本ディスプレイで起動します。Windows に virtio-win ドライバをインストールしたら、「構成」▸「グラフィックス」で「基本ディスプレイ」をオフにしてください。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Windows 以固定分辨率的基本显示启动。在 Windows 中安装 virtio-win 驱动程序后，请在“配置”▸“显示器”中关闭“基本显示”。"
+            "value": "Windows 以固定分辨率的基本显示启动。在 Windows 中安装 virtio-win 驱动程序后，请在“配置”▸“图形”中关闭“基本显示”。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "Windows 會以固定解析度的基本顯示啟動。在 Windows 中安裝 virtio-win 驅動程式後，請在「組態」▸「顯示器」關閉「基本顯示」。"
+            "value": "Windows 會以固定解析度的基本顯示啟動。在 Windows 中安裝 virtio-win 驅動程式後，請在「組態」▸「圖形」關閉「基本顯示」。"
           }
         }
       }
