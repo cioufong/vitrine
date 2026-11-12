@@ -49,6 +49,32 @@ final class QEMUArgumentsTests: XCTestCase {
         XCTAssertFalse(a.contains("vnc-gpu.sock"))
     }
 
+    /// An imported Windows guest has no install media and no viogpudo driver: it keeps the plain
+    /// framebuffer the installer uses for as long as its config asks for it.
+    func testBasicFramebufferKeepsWindowsOffVirtioGPU() {
+        var arm = config(.windows, .aarch64)
+        arm.installMedia = nil; arm.extraMedia = nil
+        arm.display.basicFramebuffer = true
+        let a = joined(QEMUArguments.build(config: arm, bundle: bundle, env: env, sockets: sockets, options: .init(withTPM: true)))
+        XCTAssertTrue(a.contains("-device ramfb"))
+        XCTAssertFalse(a.contains("virtio-gpu"))
+        XCTAssertTrue(a.contains("-vnc unix:/tmp/s/vnc.sock"))
+
+        var x64 = config(.windows, .x86_64)
+        x64.installMedia = nil; x64.extraMedia = nil
+        x64.display.basicFramebuffer = true
+        let x = joined(QEMUArguments.build(config: x64, bundle: bundle, env: env, sockets: sockets, options: .init(withTPM: true)))
+        XCTAssertTrue(x.contains("-device VGA,vgamem_mb=64"))
+        XCTAssertFalse(x.contains("virtio-vga"))
+
+        // Not a Windows setting: other guests have a virtio-gpu driver of their own.
+        var linux = config(.linux, .aarch64)
+        linux.display.basicFramebuffer = true
+        let l = joined(QEMUArguments.build(config: linux, bundle: bundle, env: env, sockets: sockets, options: .init(withTPM: false)))
+        XCTAssertTrue(l.contains("-device virtio-gpu-pci"))
+        XCTAssertFalse(l.contains("ramfb"))
+    }
+
     func testX64CDROMsGetSeparateAHCIBuses() {
         var c = config(.windows, .x86_64)
         c.extraMedia = ["seed.iso", "virtio.iso"]
