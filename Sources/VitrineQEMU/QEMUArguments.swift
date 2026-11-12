@@ -163,11 +163,14 @@ public enum QEMUArguments {
         // Display. Windows on Arm boots and installs on ramfb (a linear framebuffer its basic display
         // driver can use); once the viogpudo driver from the seed disc loads, the desktop moves to
         // virtio-gpu, which supports real resolutions and resizing. Each output gets its own VNC
-        // server and the host shows whichever is live.
+        // server and the host shows whichever is live. A Windows guest that never had that driver
+        // (an imported one) stays on the plain framebuffer for as long as its config asks for it:
+        // on virtio-gpu alone the firmware has no output to hand Windows and the screen stays black.
+        let plainFramebuffer = config.hasInstallMedia || config.display.basicFramebuffer
         switch (arch, windows) {
         case (.aarch64, true):
             let gpu = "virtio-gpu-pci,id=gpu0,xres=\(config.display.widthPixels),yres=\(config.display.heightPixels)"
-            if config.hasInstallMedia {
+            if plainFramebuffer {
                 // Installing: ramfb only. viogpudo is staged in the driver store by the first-logon
                 // script; once setup finishes (media ejected) the guest boots with virtio-gpu alone
                 // and Windows binds the staged driver. Having both outputs during setup made Windows
@@ -182,7 +185,7 @@ public enum QEMUArguments {
             // Windows Setup needs a linear framebuffer, which OVMF only provides on standard VGA (on
             // virtio-vga it drives the virtio-gpu side and Setup runs on a black screen). After setup
             // the guest moves to virtio-vga, where the viogpudo driver gives it real resolutions.
-            let display = windows && config.hasInstallMedia ? "VGA,vgamem_mb=64" : "virtio-vga"
+            let display = windows && plainFramebuffer ? "VGA,vgamem_mb=64" : "virtio-vga"
             a += ["-device", display, "-display", "none", "-vnc", "unix:\(sockets.vnc.path)"]
         }
 

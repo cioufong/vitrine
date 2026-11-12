@@ -1187,6 +1187,28 @@
         }
       }
     },
+    "Basic display": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "基本ディスプレイ"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "基本显示"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "基本顯示"
+          }
+        }
+      }
+    },
     "Best for this display (%lld×%lld)": {
       "localizations": {
         "en": {
@@ -3216,6 +3238,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "固定 IP 位址"
+          }
+        }
+      }
+    },
+    "For Windows without the virtio display driver, such as an imported VM: the screen works at a fixed resolution. Turn it off once the virtio-win drivers are installed in Windows.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "読み込んだ仮想マシンなど、virtio ディスプレイドライバのない Windows 用です。画面は固定解像度で表示されます。Windows に virtio-win ドライバをインストールしたらオフにしてください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "适用于没有 virtio 显示驱动程序的 Windows（例如导入的虚拟机）：画面以固定分辨率显示。在 Windows 中安装 virtio-win 驱动程序后请关闭。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "適用於沒有 virtio 顯示驅動程式的 Windows（例如匯入的虛擬機器）：畫面以固定解析度顯示。在 Windows 中安裝 virtio-win 驅動程式後請關閉。"
           }
         }
       }
