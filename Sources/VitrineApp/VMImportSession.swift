@@ -121,7 +121,7 @@ final class VMImportSession: ObservableObject {
             var review = Review(source: url, kind: .diskImage)
             if DiskImport.isQemuImgAvailable {
                 do {
-                    review.diskInfo = try await Self.offMain { try DiskImport.info(url) }
+                    review.diskInfo = try await Self.offMain { try DiskImport.info(url, cancellation: token) }
                 } catch {
                     review.blockers.append(.init(.diskFormat, "\(url.lastPathComponent) can't be read as a disk image: \(error.localizedDescription)"))
                 }
