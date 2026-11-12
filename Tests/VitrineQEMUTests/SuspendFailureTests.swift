@@ -40,4 +40,16 @@ final class SuspendFailureTests: XCTestCase {
                        "the controller must not get nil (which it can't tell from a successful recovery)")
         XCTAssertFalse(FileManager.default.fileExists(atPath: bundle.qemuStateURL.path))
     }
+
+    /// Closing a VM's window asks whether it can be suspended before anything is unplugged. QEMU
+    /// then still lists the USB audio device a suspend removes first; counting it shut every
+    /// Arm QEMU guest with sound down instead of suspending it.
+    func testUSBAudioASuspendUnplugsIsNotABlocker() {
+        let audio = "non-migratable device: 0000:00:02.0/3/usb-audio"
+        let ninep = "Migration is disabled when VirtFS export path '/tmp' is mounted in the guest using mount_tag 'share'"
+        XCTAssertEqual(QEMUMachine.suspendBlockers([audio], unplugsAudio: true), [])
+        XCTAssertEqual(QEMUMachine.suspendBlockers([audio, ninep], unplugsAudio: true), [ninep])
+        // Once the unplug was attempted, a device that is still there does block the save.
+        XCTAssertEqual(QEMUMachine.suspendBlockers([audio], unplugsAudio: false), [audio])
+    }
 }

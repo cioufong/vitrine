@@ -447,11 +447,22 @@ public final class QEMUMachine: @unchecked Sendable {
         }
     }
 
-    /// QEMU reports mounted 9p exports and other devices that cannot be migrated here.
+    /// QEMU reports mounted 9p exports and other devices that cannot be migrated here. The USB
+    /// audio device isn't counted while it is plugged in for a suspend to unplug (saveAndQuit):
+    /// asked before a suspend, it would make every such guest look impossible to suspend.
     public func migrationBlocker() async -> String? {
+        await migrationBlocker(audioUnplugged: false)
+    }
+
+    private func migrationBlocker(audioUnplugged: Bool) async -> String? {
         let blocked = (try? await control { try $0.execute("query-migrate") as? [String: Any] })?["blocked-reasons"] as? [String]
-        guard let blocked, !blocked.isEmpty else { return nil }
-        return blocked.joined(separator: "; ")
+        let reasons = Self.suspendBlockers(blocked ?? [], unplugsAudio: hotplugAudio && !audioUnplugged)
+        return reasons.isEmpty ? nil : reasons.joined(separator: "; ")
+    }
+
+    /// QEMU's migration blockers without the USB audio device a suspend unplugs first.
+    static func suspendBlockers(_ reasons: [String], unplugsAudio: Bool) -> [String] {
+        unplugsAudio ? reasons.filter { !$0.hasSuffix("/usb-audio") } : reasons
     }
 
     private func saveAndQuit(partial: URL) async throws {
@@ -463,7 +474,8 @@ public final class QEMUMachine: @unchecked Sendable {
                 try await Task.sleep(nanoseconds: 100_000_000)
             }
         }
-        if let blocker = await migrationBlocker() {
+        // After the unplug the audio device counts too: if it is still there, the save would fail.
+        if let blocker = await migrationBlocker(audioUnplugged: true) {
             throw VitrineError.backend("this VM can't be suspended: \(blocker)")
         }
         try await control { try $0.execute("stop") }
