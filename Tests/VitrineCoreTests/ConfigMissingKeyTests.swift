@@ -36,6 +36,14 @@ final class ConfigMissingKeyTests: XCTestCase {
         XCTAssertGreaterThan(checked, 30)
     }
 
+    func testBasicFramebufferSurvivesSaving() throws {
+        var config = VMConfig(name: "Imported", guestOS: .windows, cpuCount: 2, memoryMiB: 4096)
+        config.display.basicFramebuffer = true
+        let loaded = try JSONDecoder().decode(VMConfig.self, from: JSONEncoder().encode(config))
+        XCTAssertTrue(loaded.display.basicFramebuffer)
+        XCTAssertEqual(loaded, config)
+    }
+
     func testMissingKeysTakeTheirDefaults() throws {
         let json = #"""
         {"name":"Old","guestOS":"linux","cpuCount":2,"memoryMiB":4096,
@@ -54,6 +62,7 @@ final class ConfigMissingKeyTests: XCTestCase {
         XCTAssertEqual(c.network.portForwards[0], .init(hostPort: 2222, guestPort: 22))
         XCTAssertEqual(c.display.widthPixels, 1920)
         XCTAssertTrue(c.display.autoResize)
+        XCTAssertFalse(c.display.basicFramebuffer)
         XCTAssertEqual(c.features, VMConfig.Features())
         XCTAssertEqual(c.account?.autoLogin, true)
         XCTAssertEqual(c.account?.remoteLogin, true)

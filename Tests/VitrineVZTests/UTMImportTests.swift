@@ -234,4 +234,32 @@ final class UTMImportTests: XCTestCase {
         XCTAssertThrowsError(try UTMImporter.importVM(riscv, name: nil))
         XCTAssertTrue(try fm.contentsOfDirectory(atPath: root.appendingPathComponent("library").path).isEmpty, "nothing half-created")
     }
+
+    /// Windows from elsewhere may lack the virtio display driver, and Vitrine's virtio-gpu shows
+    /// nothing without it: imported Windows guests start on the plain framebuffer. Linux doesn't.
+    func testImportedWindowsStartsOnTheBasicDisplay() throws {
+        let qemuImg = URL(fileURLWithPath: "/opt/homebrew/bin/qemu-img")
+        guard fm.isExecutableFile(atPath: qemuImg.path) else { throw XCTSkip("qemu-img not installed") }
+        func importQEMU(_ name: String, icon: String) throws -> (config: VMConfig, notes: [String]) {
+            let utm = try makeUTM(name, [
+                "Backend": "QEMU", "ConfigurationVersion": 4,
+                "Information": ["Name": name, "Icon": icon, "IconCustom": false],
+                "System": ["Architecture": "aarch64", "CPUCount": 2, "MemorySize": 4096, "Target": "virt"],
+                "QEMU": ["UEFIBoot": true],
+                "Drive": [["ImageName": "disk.qcow2", "ImageType": "Disk", "Interface": "NVMe", "Identifier": UUID().uuidString]],
+            ], data: [:])
+            let p = Process()
+            p.executableURL = qemuImg
+            p.arguments = ["create", "-q", "-f", "qcow2", utm.appendingPathComponent("Data/disk.qcow2").path, "64M"]
+            try p.run(); p.waitUntilExit()
+            let r = try UTMImporter.importVM(utm, name: name)
+            return (try r.bundle.loadConfig(), r.notes)
+        }
+        let windows = try importQEMU("basic-win", icon: "windows-11")
+        XCTAssertTrue(windows.config.display.basicFramebuffer)
+        XCTAssertTrue(windows.notes.contains { $0.contains("Basic display") })
+        let linux = try importQEMU("basic-linux", icon: "debian")
+        XCTAssertFalse(linux.config.display.basicFramebuffer)
+        XCTAssertFalse(linux.notes.contains { $0.contains("Basic display") })
+    }
 }

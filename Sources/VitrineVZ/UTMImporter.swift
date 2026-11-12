@@ -149,6 +149,10 @@ public enum UTMImporter {
                 notes.append("assumed a \(config.guestOS == .windows ? "Windows" : "Linux") guest (UTM stores no OS type); change it with the VM's configuration if wrong")
             }
             if config.guestOS == .linux { config.boot = .efi }
+            if config.guestOS == .windows {
+                config.display.basicFramebuffer = true
+                notes.append(VMConfig.DisplayConfig.basicFramebufferImportNote)
+            }
             let qemu = root["QEMU"] as? [String: Any] ?? [:]
             if qemu["UEFIBoot"] as? Bool == false {
                 notes.append("the VM boots with legacy BIOS; Vitrine starts QEMU guests with UEFI, so a BIOS-only system won't boot")

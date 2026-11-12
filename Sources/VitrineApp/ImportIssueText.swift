@@ -138,6 +138,8 @@ enum ImportIssueText {
             return String(localized: "The guest gets virtio/NVMe disks and a virtio network adapter, so its network interface may get a new name.", bundle: bundle)
         case .cleanShutdown:
             return String(localized: "\(app) recorded no clean shutdown for this VM; its file systems may need checking on first boot.", bundle: bundle)
+        case .basicDisplay:
+            return String(localized: "Windows starts on a basic display at a fixed resolution. After installing the virtio-win drivers in Windows, turn off Basic display under Configuration ▸ Display.", bundle: bundle)
         case .other:
             return nil
         }
