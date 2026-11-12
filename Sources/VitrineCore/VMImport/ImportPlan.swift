@@ -30,7 +30,7 @@ public struct ImportPlan: Codable, Sendable, Equatable {
             case nameChanged, nameTaken, cpusReduced, cpusMissing, memoryRaised, memoryReduced,
                  memoryMissing, macReplaced, emulated, firmwareConfig, noFallbackLoader, nvramNotImported,
                  tpmNotImported, mediaSkipped, guestOSAssumed, architectureFromDisk, signatureNotChecked,
-                 networkDrivers, cleanShutdown, other
+                 networkDrivers, cleanShutdown, basicDisplay, other
         }
         public var code: Code
         public var message: String

@@ -479,6 +479,9 @@ public enum WholeVMImporter {
         if plan.architecture == .x86_64 {
             plan.warn(.emulated, "x86_64 guests are emulated on Apple silicon (QEMU) and run many times slower than native ones")
         }
+        if plan.guestOS == .windows {
+            plan.warn(.basicDisplay, VMConfig.DisplayConfig.basicFramebufferImportNote)
+        }
         if plan.guestOS == .linux {
             plan.warn(.networkDrivers, "the guest gets virtio/NVMe disks and a virtio network adapter: its network interface may get a new name (reconfigure it if the network doesn't come up)")
         }
@@ -559,6 +562,8 @@ public enum WholeVMImporter {
         config.architecture = plan.architecture
         config.backend = plan.backend
         if plan.guestOS == .linux { config.boot = .efi }
+        // Windows from another tool has no viogpudo driver: virtio-gpu alone would show nothing.
+        if plan.guestOS == .windows { config.display.basicFramebuffer = true }
         if let mac = plan.macAddress { config.network.macAddress = mac }
         if plan.networkDisabled { config.network.mode = .none }
         let interface: VMConfig.DiskConfig.Interface = plan.backend == .qemu ? .nvme : .virtio

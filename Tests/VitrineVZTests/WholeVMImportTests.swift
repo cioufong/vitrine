@@ -401,6 +401,26 @@ final class WholeVMImportTests: XCTestCase {
         XCTAssertEqual(try Data(contentsOf: b.resolve("disk.img")), raw)
     }
 
+    /// Windows from another tool has no viogpudo driver, and virtio-gpu alone shows nothing without
+    /// it: the imported VM starts on the plain framebuffer and the plan says so. Linux is left alone.
+    func testImportedWindowsStartsOnTheBasicDisplay() throws {
+        try requireQemuImg()
+        var vmx = String(decoding: try fixture("vmware/debian-12.12-aarch64.vmx"), as: UTF8.self)
+        XCTAssertTrue(vmx.contains(#"guestos = "arm-debian12-64""#))
+        vmx = vmx.replacingOccurrences(of: #"guestos = "arm-debian12-64""#, with: #"guestos = "arm-windows11-64""#)
+        let plan = try WholeVMImporter.inspect(try vmwareFolder(Self.bootDisk(.gpt), vmx: Data(vmx.utf8)))
+        XCTAssertEqual(plan.blockers, [], plan.summary)
+        XCTAssertEqual(plan.guestOS, .windows)
+        XCTAssertTrue(plan.warnings.contains { $0.code == .basicDisplay })
+        XCTAssertTrue(try WholeVMImporter.execute(plan).loadConfig().display.basicFramebuffer)
+
+        try fm.removeItem(at: root.appendingPathComponent("deb.vmwarevm"))
+        let linux = try WholeVMImporter.inspect(try vmwareFolder(Self.bootDisk(.gpt)))
+        XCTAssertFalse(linux.warnings.contains { $0.code == .basicDisplay })
+        var o = WholeVMImporter.Overrides(); o.name = "linux-guest"
+        XCTAssertFalse(try WholeVMImporter.execute(linux, overrides: o).loadConfig().display.basicFramebuffer)
+    }
+
     func testVMwareFixturesAreRefusedForTheRightReasons() throws {
         // Encrypted Windows 11 with a vTPM.
         let enc = try dir("enc.vmwarevm")
