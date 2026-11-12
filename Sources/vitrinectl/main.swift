@@ -513,6 +513,7 @@ do {
             b = try VMImporter.importDisk(src, o)
             let c = try b.loadConfig()
             print("imported \(src.lastPathComponent) as \(b.name) (\(c.guestOS.rawValue), \(c.effectiveArchitecture.rawValue), \(c.effectiveBackend.rawValue)) → \(b.url.path)")
+            if c.display.basicFramebuffer { print("  note: \(VMConfig.DisplayConfig.basicFramebufferImportNote)") }
         }
         // The guest account lets vitrinectl exec/push/pull and agent installs log in over SSH.
         if let user = args.options["user"] {
