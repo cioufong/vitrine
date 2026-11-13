@@ -40,6 +40,17 @@ public struct QEMUEnvironment: Sendable, Equatable {
         shareDirectory.appendingPathComponent(arch == .aarch64 ? "edk2-arm-vars.fd" : "edk2-i386-vars.fd")
     }
 
+    /// Whether a UEFI variable store of `size` bytes fits the firmware Vitrine starts `arch` guests
+    /// with. QEMU refuses to start with one of another size: the aarch64 `virt` machine's flash
+    /// banks are 64 MiB, and the x86_64 store must be as large as QEMU's own template. Other tools
+    /// ship firmware builds with other layouts (UTM's aarch64 store is 640 KiB).
+    public static func variableStoreFits(size: UInt64, _ arch: VMConfig.Architecture) -> Bool {
+        if arch == .aarch64 { return size == 64 << 20 }
+        guard let template = try? detect().firmwareVarsTemplate(arch),
+              let expected = (try? FileManager.default.attributesOfItem(atPath: template.path))?[.size] as? UInt64 else { return true }
+        return size == expected
+    }
+
     /// swtpm (TPM 2.0 emulator) for Windows 11, if installed.
     public var swtpm: URL? {
         let candidates = [binDirectory.appendingPathComponent("swtpm"), URL(fileURLWithPath: "/opt/homebrew/bin/swtpm")]

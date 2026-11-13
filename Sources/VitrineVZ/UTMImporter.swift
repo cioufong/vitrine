@@ -65,6 +65,11 @@ public enum UTMImporter {
         if let mib = system["MemorySize"] as? Int, mib > 0 {
             config.memoryMiB = min(UInt64(mib), hostMiB)
             if UInt64(mib) > hostMiB { notes.append("reduced memory from \(mib) MiB to \(hostMiB) MiB, the amount this Mac has") }
+            // UTM allows less than Vitrine starts a VM with (its own Linux images ask for 1 GiB).
+            if config.memoryMiB < VMConfig.minimumMemoryMiB {
+                config.memoryMiB = VMConfig.minimumMemoryMiB
+                notes.append("raised memory from \(mib) MiB to \(VMConfig.minimumMemoryMiB) MiB, Vitrine's minimum")
+            }
         }
         if let mac = ((root["Network"] as? [[String: Any]])?.first?["MacAddress"] as? String)?.lowercased() {
             // A malformed address (one carrying QEMU device options, say) keeps the random default.
@@ -157,8 +162,17 @@ public enum UTMImporter {
             if qemu["UEFIBoot"] as? Bool == false {
                 notes.append("the VM boots with legacy BIOS; Vitrine starts QEMU guests with UEFI, so a BIOS-only system won't boot")
             }
+            // UTM keeps the variable store as a qcow2 image of the 64 MiB flash; QEMU here takes
+            // it raw, and won't start with a store of another size than its firmware expects.
             let vars = try source("efi_vars.fd")
-            if FileManager.default.fileExists(atPath: vars.path) { copies.append((vars, "efivars.fd", false)) }
+            if let fileSize = (try? FileManager.default.attributesOfItem(atPath: vars.path))?[.size] as? UInt64 {
+                let image = try? DiskImport.info(vars)
+                if QEMUEnvironment.variableStoreFits(size: image?.virtualSize ?? fileSize, config.effectiveArchitecture) {
+                    copies.append((vars, "efivars.fd", image != nil))
+                } else {
+                    notes.append("left out UTM's UEFI variables (their size doesn't fit QEMU's firmware); the guest boots through its disk's fallback loader")
+                }
+            }
             let tpm = try source("tpmdata")
             if FileManager.default.fileExists(atPath: tpm.path) {
                 copies.append((tpm, "tpm/tpm2-00.permall", false))
