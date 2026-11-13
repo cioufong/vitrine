@@ -8,6 +8,29 @@ lowers the display and latency numbers below.
 Legend: **PASS** works as documented · **N/A** not available for this guest (see note) ·
 **known** works with a documented limitation · **—** not tested in this round.
 
+## 0.3.0 round (2026-11-13)
+
+Host: MacBook Pro M1 Max, macOS 27.2, QEMU 11.1.3. Imports were run on VMs written by the other
+tools themselves (public Vagrant boxes, vendor OVAs, the `utmapp/vm-downloads` images), never on
+hand-made bundles. Each row was tested on its pull request's branch before it was merged.
+
+| Check | Commit | Result |
+|---|---|---|
+| `swift test` | 6092148 | 480 tests, 0 failures |
+| `go test` (Linux agent, Go 1.26) | 6092148 | 8 packages ok |
+| Import Debian 12 arm64 written by Parallels (`.pvm`) and by VMware Fusion (17-extent VMDK) | #31 | PASS: disks identical per `qemu-img compare`, booted on Virtualization.framework, SSH up |
+| Import Ubuntu 24.04 amd64 OVA as Canonical publishes it, and a 10.9 GB OVA with a 9.5 GiB data disk | #31 | PASS: digests verified, disks identical, both boot (Ubuntu emulated on QEMU) |
+| VirtualBox arm64 OVF; BIOS-only, snapshot, saved-state and encrypted VMs | #31 | Dry-run only: the OVF plans cleanly, the others are refused with the reason |
+| Import from the app: review sheet, progress, cancel | #32 | PASS: the plan's warnings are shown (checked in zh-Hant), a cancelled import leaves no partial VM |
+| Import VMs written by UTM (Arch Linux, Debian 11.5 Xfce; QEMU aarch64) | #33 | PASS: both boot; before the fix the Arch VM did not start and the Debian import failed |
+| Imported Windows 11 Arm (VirtualBox and VMware boxes): basic display | #34 | PASS: both reach the desktop at 800×600 on `ramfb`; suspend and resume checked on the VirtualBox one |
+| Imported Windows 11 Arm: driver disc, `install.cmd`, network | #36 | PASS on both guests: NetKVM binds, 10.0.2.15, HTTPS out. On the VirtualBox guest also: suspend/resume with the disc, then eject and Basic display off boots on virtio-gpu at 2560×1600 |
+| Close the window of an Arm QEMU guest with sound | #35 | PASS: suspends, and reopening resumes where it was (it shut down before) |
+
+Not tested in this round: x86_64 Windows guests (no sample); `install.cmd` asking for elevation (both
+Windows samples run with UAC off); VMs from UTM's Apple backend; an `.ova` exported by VirtualBox or ovftool; the fixes in #24–#30 beyond their
+unit tests and the checks recorded in their pull requests.
+
 ## 0.2.1 round (2026-11-04)
 
 Host: MacBook Pro M1 Max, macOS 27.2.

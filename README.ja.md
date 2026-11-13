@@ -105,7 +105,7 @@ macOS 27 を実行する M1 Max でエンドツーエンドに検証済みです
   NAT / ホストオンリー / 固定アドレス付きの名前付き VM 間ネットワーク / ブリッジ（一度インストールする小さな root ヘルパー経由。root で実行する前にコード署名を検証）/
   ネットワークなし、両バックエンドでの TCP および UDP ポートフォワード（[docs/networking.md](docs/networking.md)）、
   共有フォルダ（VZ では virtiofs、QEMU の Linux では 9p）、シリアルコンソール（`vitrinectl console`、スクリプト化可能）、
-  QEMU の GDB スタブ、SSH によるファイルの push/pull、qcow2/VMDK/VHDX/VDI ディスクおよび UTM VM のインポート、
+  QEMU の GDB スタブ、SSH によるファイルの push/pull、VMware・Parallels・VirtualBox・UTM の VM と OVA/OVF パッケージ（または qcow2/VMDK/VHDX/VDI ディスク単体）のインポート、
   自動化用の `vitrine://start|show|suspend|stop?vm=NAME` URL、VM 実行中に Mac をスリープさせない機能、
   x86_64 QEMU ゲストでの Microsoft の鍵による Secure Boot（Debian の署名済み shim → GRUB は検証済み。
   Secure Boot を有効にした Windows は未検証）。
@@ -214,7 +214,7 @@ vitrinectl network create lab; vitrinectl set deb --network network:lab   # VM �
 vitrinectl set deb --network bridged:en0                  # LAN 上で独自のアドレスを持つ（docs/networking.md）
 vitrinectl push deb ./notes /home/me/notes                # コピーして入れる（pull でコピーして取り出す）
 vitrinectl console deb                                    # シリアルコンソール。Ctrl-] で切り離す
-vitrinectl import old.utm                                 # または .qcow2/.vmdk/.vhdx/.vdi ディスク
+vitrinectl import old.utm                                 # または .vmwarevm/.pvm/.vbox/.ova、.qcow2/.vmdk/.vhdx/.vdi ディスク
 open 'vitrine://start?vm=deb'                             # スクリプトから start/show/suspend/stop
 vitrinectl list
 ```

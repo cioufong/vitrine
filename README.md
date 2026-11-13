@@ -105,7 +105,7 @@ Verified end-to-end on an M1 Max running macOS 27:
   bridged (through a small root helper you install once; its code signature is checked before it runs as root) / no networking, with TCP and UDP port
   forwards on both backends ([docs/networking.md](docs/networking.md)),
   shared folders (virtiofs on VZ, 9p on QEMU Linux), serial consoles (`vitrinectl console`, scriptable),
-  a QEMU GDB stub, file push/pull over SSH, importing qcow2/VMDK/VHDX/VDI disks and UTM VMs,
+  a QEMU GDB stub, file push/pull over SSH, importing VMs from VMware, Parallels, VirtualBox, UTM and OVA/OVF packages (or a bare qcow2/VMDK/VHDX/VDI disk),
   `vitrine://start|show|suspend|stop?vm=NAME` URLs for automation, keeping the Mac awake while VMs
   run, and Secure Boot with Microsoft's keys for x86_64 QEMU guests (Debian's signed shim → GRUB
   verified; Windows with Secure Boot on not yet verified).
@@ -214,7 +214,7 @@ vitrinectl network create lab; vitrinectl set deb --network network:lab   # VM-t
 vitrinectl set deb --network bridged:en0                  # own address on the LAN (docs/networking.md)
 vitrinectl push deb ./notes /home/me/notes                # copy in (pull copies out)
 vitrinectl console deb                                    # serial console; Ctrl-] detaches
-vitrinectl import old.utm                                 # or a .qcow2/.vmdk/.vhdx/.vdi disk
+vitrinectl import old.utm                                 # or .vmwarevm/.pvm/.vbox/.ova, or a .qcow2/.vmdk/.vhdx/.vdi disk
 open 'vitrine://start?vm=deb'                             # start/show/suspend/stop from scripts
 vitrinectl list
 ```
