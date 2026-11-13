@@ -412,7 +412,10 @@ public final class QEMUMachine: @unchecked Sendable {
         let marker = bundle.url.appendingPathComponent("efivars.secureboot")
         let want = config.features.secureBoot && config.effectiveArchitecture == .x86_64
         let have = fm.fileExists(atPath: marker.path)
-        let exists = fm.fileExists(atPath: bundle.efiVarsURL.path)
+        // An aarch64 store that isn't the size of the flash (one copied from another tool's
+        // firmware by an earlier import) can't be started at all, so it is replaced like a missing one.
+        let size = (try? fm.attributesOfItem(atPath: bundle.efiVarsURL.path))?[.size] as? UInt64
+        let exists = size.map { config.effectiveArchitecture != .aarch64 || QEMUEnvironment.variableStoreFits(size: $0, .aarch64) } ?? false
         guard !exists || (want != have && !fm.fileExists(atPath: bundle.qemuStateURL.path)) else { return }
         let fresh = bundle.url.appendingPathComponent("efivars.fd.new")
         try? fm.removeItem(at: fresh)
