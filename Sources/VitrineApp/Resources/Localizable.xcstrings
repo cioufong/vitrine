@@ -1099,6 +1099,28 @@
         }
       }
     },
+    "Attach Driver Disc": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ドライバディスクを接続"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "连接驱动程序光盘"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "連接驅動程式光碟"
+          }
+        }
+      }
+    },
     "Automatic": {
       "localizations": {
         "ja": {
@@ -1481,6 +1503,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "橋接需要 Vitrine 的橋接輔助程式，安裝時會要求輸入一次管理者密碼。"
+          }
+        }
+      }
+    },
+    "Could not attach the driver disc": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ドライバディスクを接続できませんでした"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法连接驱动程序光盘"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法連接驅動程式光碟"
           }
         }
       }
@@ -3019,6 +3063,28 @@
         }
       }
     },
+    "Driver Disc": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ドライバディスク"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "驱动程序光盘"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "驅動程式光碟"
+          }
+        }
+      }
+    },
     "Each run starts from the state the VM had when it was last started in this mode. Disks, settings and firmware variables revert; shared folders on the Mac are not affected. Disposable VMs shut down instead of suspending.": {
       "localizations": {
         "ja": {
@@ -3059,6 +3125,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "退出 %@"
+          }
+        }
+      }
+    },
+    "Eject Driver Disc": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ドライバディスクを取り出す"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "推出驱动程序光盘"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "退出驅動程式光碟"
           }
         }
       }
@@ -3242,24 +3330,24 @@
         }
       }
     },
-    "For Windows without the virtio display driver, such as an imported VM: the screen works at a fixed resolution. Turn it off once the virtio-win drivers are installed in Windows.": {
+    "For Windows without the virtio display driver, such as an imported VM: the screen works at a fixed resolution. Turn it off once the drivers from the driver disc (under Hard Disk) are installed in Windows.": {
       "localizations": {
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "読み込んだ仮想マシンなど、virtio ディスプレイドライバのない Windows 用です。画面は固定解像度で表示されます。Windows に virtio-win ドライバをインストールしたらオフにしてください。"
+            "value": "読み込んだ仮想マシンなど、virtio ディスプレイドライバのない Windows 用です。画面は固定解像度で表示されます。ドライバディスク（「ハードディスク」内）のドライバを Windows にインストールしたらオフにしてください。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "适用于没有 virtio 显示驱动程序的 Windows（例如导入的虚拟机）：画面以固定分辨率显示。在 Windows 中安装 virtio-win 驱动程序后请关闭。"
+            "value": "适用于没有 virtio 显示驱动程序的 Windows（例如导入的虚拟机）：画面以固定分辨率显示。在 Windows 中安装驱动程序光盘（位于“硬盘”）里的驱动程序后请关闭。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "適用於沒有 virtio 顯示驅動程式的 Windows（例如匯入的虛擬機器）：畫面以固定解析度顯示。在 Windows 中安裝 virtio-win 驅動程式後請關閉。"
+            "value": "適用於沒有 virtio 顯示驅動程式的 Windows（例如匯入的虛擬機器）：畫面以固定解析度顯示。在 Windows 中安裝驅動程式光碟（位於「硬碟」）裡的驅動程式後請關閉。"
           }
         }
       }
@@ -9272,6 +9360,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "Windows 會使用此本機帳號自動安裝，略過首次開機設定並自動登入。"
+          }
+        }
+      }
+    },
+    "Windows that Vitrine did not install, such as an imported VM, has no driver for Vitrine's display or, on Arm, its network adapter. Attach the disc, start Windows, then open the VITRINE_DRIVERS disc and run install.cmd. Eject the disc afterwards.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "読み込んだ仮想マシンなど、Vitrine がインストールしていない Windows には、Vitrine のディスプレイのドライバがなく、Arm ではネットワークアダプタのドライバもありません。ディスクを接続して Windows を起動し、VITRINE_DRIVERS ディスクを開いて install.cmd を実行してください。終わったらディスクを取り出します。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "不是由 Vitrine 安装的 Windows（例如导入的虚拟机）没有 Vitrine 显示器的驱动程序，在 Arm 上也没有网络适配器的驱动程序。连接光盘并启动 Windows，然后打开 VITRINE_DRIVERS 光盘并运行 install.cmd。完成后请推出光盘。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "不是由 Vitrine 安裝的 Windows（例如匯入的虛擬機器）沒有 Vitrine 顯示器的驅動程式，在 Arm 上也沒有網路卡的驅動程式。連接光碟並啟動 Windows，然後打開 VITRINE_DRIVERS 光碟並執行 install.cmd。完成後請退出光碟。"
           }
         }
       }

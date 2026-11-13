@@ -27,6 +27,9 @@ public struct VMConfig: Codable, Equatable, Sendable {
     public var architecture: Architecture?
     /// Additional read-only discs (QEMU), e.g. the Windows unattended-setup seed.
     public var extraMedia: [String]?
+    /// Disc of virtio drivers for a Windows guest that never had them (an imported one), read-only
+    /// on QEMU. Unlike `extraMedia` it is not setup media: the guest boots and runs as usual with it.
+    public var driverMedia: String?
     public var notes: String = ""
     /// The system disk was enlarged; the guest's partition is extended once its agent connects.
     public var pendingDiskGrow: Bool?
@@ -224,7 +227,7 @@ public struct VMConfig: Codable, Equatable, Sendable {
         /// guests; fixed resolution, so turn it off once the guest has the driver.
         public var basicFramebuffer: Bool = false
         /// What an importer tells the user after turning `basicFramebuffer` on.
-        public static let basicFramebufferImportNote = "Windows starts on a basic display at a fixed resolution, since Vitrine's display needs a virtio driver the guest may not have; after installing the virtio-win drivers in the guest, turn off Basic display under Configuration ▸ Graphics"
+        public static let basicFramebufferImportNote = "Windows starts on a basic display at a fixed resolution and, on Arm, without network, since Vitrine's display and its network adapter on Arm need virtio drivers the guest may not have; attach the driver disc (Configuration ▸ Hard Disk, or `vitrinectl drivers`) and run install.cmd from it in Windows, then turn off Basic display under Configuration ▸ Graphics"
         public init() {}
         public init(widthPixels: Int, heightPixels: Int, pixelsPerInch: Int) {
             self.widthPixels = widthPixels; self.heightPixels = heightPixels; self.pixelsPerInch = pixelsPerInch
@@ -471,6 +474,9 @@ public extension VMConfig {
             if let media = installMedia, !FileManager.default.fileExists(atPath: bundle.resolve(media).path) {
                 throw VitrineError.fileNotFound(bundle.resolve(media).path)
             }
+            if let media = driverMedia, !FileManager.default.fileExists(atPath: bundle.resolve(media).path) {
+                throw VitrineError.fileNotFound(bundle.resolve(media).path)
+            }
             if case .kernel(let k, let i, _) = boot {
                 for p in [k] + (i.map { [$0] } ?? []) where !FileManager.default.fileExists(atPath: bundle.resolve(p).path) {
                     throw VitrineError.fileNotFound(bundle.resolve(p).path)
@@ -552,6 +558,7 @@ extension VMConfig {
         backend = try c.decodeIfPresent(Backend.self, forKey: .backend)
         architecture = try c.decodeIfPresent(Architecture.self, forKey: .architecture)
         extraMedia = try c.decodeIfPresent([String].self, forKey: .extraMedia)
+        driverMedia = try c.decodeIfPresent(String.self, forKey: .driverMedia)
         notes = try c.decode(.notes, default: "")
         pendingDiskGrow = try c.decodeIfPresent(Bool.self, forKey: .pendingDiskGrow)
         windowsSetupOffline = try c.decodeIfPresent(Bool.self, forKey: .windowsSetupOffline)
