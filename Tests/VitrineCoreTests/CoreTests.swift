@@ -288,12 +288,16 @@ final class BundleAndSnapshotTests: XCTestCase {
         let b = try makeBundle()
         var config = try b.loadConfig()
         config.extraMedia = ["seed.iso"]
+        config.driverMedia = VMConfig.driverDiscFileName
         try b.saveConfig(config)
         try Data("seed".utf8).write(to: b.resolve("seed.iso"))
+        try Data("drivers".utf8).write(to: b.resolve(VMConfig.driverDiscFileName))
         try FileManager.default.createDirectory(at: b.tpmStateDirectory, withIntermediateDirectories: true)
         try Data("tpm".utf8).write(to: b.tpmStateDirectory.appendingPathComponent("tpm2-00.permall"))
         let clone = try VMCloner.clone(b, to: tmp.appendingPathComponent("media.vitrinevm"), newName: "media")
         XCTAssertTrue(FileManager.default.fileExists(atPath: clone.resolve("seed.iso").path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: clone.resolve(VMConfig.driverDiscFileName).path))
+        XCTAssertEqual(try clone.loadConfig().driverMedia, VMConfig.driverDiscFileName)
         XCTAssertTrue(FileManager.default.fileExists(atPath: clone.tpmStateDirectory.appendingPathComponent("tpm2-00.permall").path))
 
         config.disks.append(.init(path: tmp.appendingPathComponent("outside.img").path))
