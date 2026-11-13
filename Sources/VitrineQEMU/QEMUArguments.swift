@@ -144,6 +144,15 @@ public enum QEMUArguments {
                                   : ["-device", "ide-cd,drive=cdx\(i),bus=ide.\(i + 1)"]
         }
 
+        // Driver disc: a plain data disc on a bus the guest has inbox drivers for. The last AHCI port
+        // on x86, out of the way of the installer and seed discs.
+        if let media = config.driverMedia {
+            let iso = bundle.resolve(media).path
+            a += ["-drive", "id=cddrv,if=none,media=cdrom,format=raw,readonly=on,file=\(qemuEscape(iso))"]
+            a += arch == .aarch64 ? ["-device", "usb-storage,bus=xhci.0,drive=cddrv,removable=on"]
+                                  : ["-device", "ide-cd,drive=cddrv,bus=ide.5"]
+        }
+
         // Shared folders for Linux (and other non-Windows) guests: one virtio-9p export per folder,
         // mounted in the guest by its tag. Windows gets them over SMB instead (SambaServer).
         // `security_model=none` keeps files on the Mac ordinary files owned by the Mac user.
@@ -163,11 +172,14 @@ public enum QEMUArguments {
         // Display. Windows on Arm boots and installs on ramfb (a linear framebuffer its basic display
         // driver can use); once the viogpudo driver from the seed disc loads, the desktop moves to
         // virtio-gpu, which supports real resolutions and resizing. Each output gets its own VNC
-        // server and the host shows whichever is live.
+        // server and the host shows whichever is live. A Windows guest that never had that driver
+        // (an imported one) stays on the plain framebuffer for as long as its config asks for it:
+        // on virtio-gpu alone the firmware has no output to hand Windows and the screen stays black.
+        let plainFramebuffer = config.hasInstallMedia || config.display.basicFramebuffer
         switch (arch, windows) {
         case (.aarch64, true):
             let gpu = "virtio-gpu-pci,id=gpu0,xres=\(config.display.widthPixels),yres=\(config.display.heightPixels)"
-            if config.hasInstallMedia {
+            if plainFramebuffer {
                 // Installing: ramfb only. viogpudo is staged in the driver store by the first-logon
                 // script; once setup finishes (media ejected) the guest boots with virtio-gpu alone
                 // and Windows binds the staged driver. Having both outputs during setup made Windows
@@ -182,12 +194,13 @@ public enum QEMUArguments {
             // Windows Setup needs a linear framebuffer, which OVMF only provides on standard VGA (on
             // virtio-vga it drives the virtio-gpu side and Setup runs on a black screen). After setup
             // the guest moves to virtio-vga, where the viogpudo driver gives it real resolutions.
-            let display = windows && config.hasInstallMedia ? "VGA,vgamem_mb=64" : "virtio-vga"
+            let display = windows && plainFramebuffer ? "VGA,vgamem_mb=64" : "virtio-vga"
             a += ["-device", display, "-display", "none", "-vnc", "unix:\(sockets.vnc.path)"]
         }
 
         // Network: user-mode NAT. Windows x86 has an inbox e1000e driver; Windows on Arm gets virtio-net
-        // with the NetKVM driver from the unattended-setup seed disc. Host-only is the same network
+        // with the NetKVM driver from the unattended-setup seed disc (an imported guest gets it from the
+        // driver disc: no adapter QEMU emulates has an inbox driver there; e1000e and usb-net were tried). Host-only is the same network
         // with `restrict=on`: no route out, while forwarded ports and the Samba share keep working.
         let nic = (windows && arch == .x86_64) ? "e1000e" : "virtio-net-pci"
         // validate() rejects malformed MACs; never splice an unchecked one into -device (a comma would

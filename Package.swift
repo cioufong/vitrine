@@ -46,7 +46,8 @@ let package = Package(
         // "Vitrine Camera" CoreMediaIO extension for macOS guests (a system extension inside VitrineAgent.app).
         .executableTarget(name: "vitrine-camera-extension", path: "guest/macos-camera-extension/Sources", swiftSettings: v5),
         .testTarget(name: "VitrineCoreTests", dependencies: ["VitrineCore"], swiftSettings: v5),
-        .testTarget(name: "VitrineVZTests", dependencies: ["VitrineVZ", "VitrineCore", "VitrineNet"], swiftSettings: v5),
+        .testTarget(name: "VitrineVZTests", dependencies: ["VitrineVZ", "VitrineCore", "VitrineNet"],
+                    exclude: ["Fixtures"], swiftSettings: v5),
         .testTarget(name: "VitrineQEMUTests", dependencies: ["VitrineQEMU", "VitrineCore"], swiftSettings: v5),
         .testTarget(name: "VitrineAgentHostTests",
                     dependencies: ["VitrineAgentHost", "VitrineAgentProtocol", "VitrineCore"], swiftSettings: v5),
@@ -55,6 +56,8 @@ let package = Package(
         .testTarget(name: "AgentProbeRegression",
                     dependencies: ["vitrinectl", "VitrineQEMU", "VitrineAgentHost", "VitrineAgentProtocol", "VitrineCore"],
                     swiftSettings: v5),
+        // The app's non-UI logic (import source detection, import messages) in place (`@testable import VitrineApp`).
+        .testTarget(name: "VitrineAppTests", dependencies: ["VitrineApp", "VitrineVZ", "VitrineCore"], swiftSettings: v5),
         .testTarget(name: "MacInputInjectorRegression", dependencies: ["vitrine-agent", "VitrineAgentProtocol"],
                     swiftSettings: v5),
     ]

@@ -49,6 +49,70 @@ final class QEMUArgumentsTests: XCTestCase {
         XCTAssertFalse(a.contains("vnc-gpu.sock"))
     }
 
+    /// An imported Windows guest has no install media and no viogpudo driver: it keeps the plain
+    /// framebuffer the installer uses for as long as its config asks for it.
+    /// The driver disc is a data disc: the guest is not treated as being installed, so the display
+    /// follows `basicFramebuffer` alone and the disc sits where an imported Windows can read it.
+    func testDriverDiscIsAPlainDiscAndNotSetupMedia() {
+        var arm = config(.windows, .aarch64)
+        arm.installMedia = nil; arm.extraMedia = nil
+        arm.driverMedia = "drivers.iso"
+        let a = joined(QEMUArguments.build(config: arm, bundle: bundle, env: env, sockets: sockets, options: .init(withTPM: true)))
+        XCTAssertTrue(a.contains("id=cddrv,if=none,media=cdrom,format=raw,readonly=on,file="))
+        XCTAssertTrue(a.contains("-device usb-storage,bus=xhci.0,drive=cddrv,removable=on"))
+        XCTAssertFalse(a.contains("bootindex=0"))
+        XCTAssertFalse(a.contains("ramfb"))
+        XCTAssertTrue(a.contains("virtio-gpu-pci"))
+        XCTAssertTrue(a.contains("virtio-net-pci"))
+
+        var x64 = config(.windows, .x86_64)
+        x64.driverMedia = "drivers.iso"
+        let x = joined(QEMUArguments.build(config: x64, bundle: bundle, env: env, sockets: sockets, options: .init(withTPM: true)))
+        XCTAssertTrue(x.contains("-device ide-cd,drive=cddrv,bus=ide.5"))
+
+        var none = config(.windows, .aarch64)
+        none.installMedia = nil; none.extraMedia = nil
+        XCTAssertFalse(joined(QEMUArguments.build(config: none, bundle: bundle, env: env, sockets: sockets, options: .init(withTPM: true))).contains("cddrv"))
+    }
+
+    func testDriverDiscInstallScriptElevatesAndInstallsEveryDriver() {
+        let script = WindowsDriverDisc.installScript
+        XCTAssertTrue(script.contains("Start-Process -Verb RunAs"))
+        XCTAssertTrue(script.contains(#"if "%~1"=="elevated" goto install"#), "one relaunch only")
+        XCTAssertTrue(script.contains(#"pnputil /add-driver "%~dp0drivers\*.inf" /subdirs /install"#))
+        XCTAssertTrue(script.contains("pnputil /scan-devices"))
+    }
+
+    func testDriverDiscIsOnlyForWindowsOnQEMU() {
+        var linux = config(.linux, .aarch64)
+        XCTAssertThrowsError(try WindowsDriverDisc.attach(to: &linux, in: bundle, virtioWinISO: URL(fileURLWithPath: "/nonexistent.iso")))
+        XCTAssertNil(linux.driverMedia)
+    }
+
+    func testBasicFramebufferKeepsWindowsOffVirtioGPU() {
+        var arm = config(.windows, .aarch64)
+        arm.installMedia = nil; arm.extraMedia = nil
+        arm.display.basicFramebuffer = true
+        let a = joined(QEMUArguments.build(config: arm, bundle: bundle, env: env, sockets: sockets, options: .init(withTPM: true)))
+        XCTAssertTrue(a.contains("-device ramfb"))
+        XCTAssertFalse(a.contains("virtio-gpu"))
+        XCTAssertTrue(a.contains("-vnc unix:/tmp/s/vnc.sock"))
+
+        var x64 = config(.windows, .x86_64)
+        x64.installMedia = nil; x64.extraMedia = nil
+        x64.display.basicFramebuffer = true
+        let x = joined(QEMUArguments.build(config: x64, bundle: bundle, env: env, sockets: sockets, options: .init(withTPM: true)))
+        XCTAssertTrue(x.contains("-device VGA,vgamem_mb=64"))
+        XCTAssertFalse(x.contains("virtio-vga"))
+
+        // Not a Windows setting: other guests have a virtio-gpu driver of their own.
+        var linux = config(.linux, .aarch64)
+        linux.display.basicFramebuffer = true
+        let l = joined(QEMUArguments.build(config: linux, bundle: bundle, env: env, sockets: sockets, options: .init(withTPM: false)))
+        XCTAssertTrue(l.contains("-device virtio-gpu-pci"))
+        XCTAssertFalse(l.contains("ramfb"))
+    }
+
     func testX64CDROMsGetSeparateAHCIBuses() {
         var c = config(.windows, .x86_64)
         c.extraMedia = ["seed.iso", "virtio.iso"]

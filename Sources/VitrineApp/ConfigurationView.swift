@@ -1,5 +1,6 @@
 import SwiftUI
 import VitrineCore
+import VitrineQEMU
 import VitrineVZ
 
 enum ConfigTab: String, CaseIterable, Identifiable {
@@ -362,6 +363,11 @@ private struct HardwarePane: View {
                     }
                 }
                 Toggle("Resize guest display with window", isOn: binding(\.display.autoResize))
+                if controller.config.guestOS == .windows && controller.config.effectiveBackend == .qemu {
+                    Toggle("Basic display", isOn: binding(\.display.basicFramebuffer))
+                    Text("For Windows without the virtio display driver, such as an imported VM: the screen works at a fixed resolution. Turn it off once the drivers from the driver disc (under Hard Disk) are installed in Windows.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
                 if controller.config.effectiveBackend == .qemu {
                     Picker("Scaling", selection: binding(\.features.pixelPerfectScaling)) {
                         Text("Smooth").tag(false)
@@ -461,6 +467,9 @@ private struct HardwarePane: View {
                         Text("Rosetta: sudo mount -t virtiofs rosetta /media/rosetta").font(.system(.caption, design: .monospaced)).textSelection(.enabled)
                     }
                 }
+            }
+            if controller.config.guestOS == .windows && controller.config.effectiveBackend == .qemu {
+                DriverDiscSection(bundle: bundle, controller: controller)
             }
             DiskCapacitySection(controller: controller)
             ForEach(controller.config.disks, id: \.path) { d in
@@ -592,6 +601,45 @@ private struct SnapshotsPane: View {
 }
 
 /// Shows the system disk's capacity and grows it (Linux and Windows guests).
+/// The disc of virtio drivers for a Windows guest Vitrine did not install (see WindowsDriverDisc).
+private struct DriverDiscSection: View {
+    @EnvironmentObject var model: AppModel
+    let bundle: VMBundle
+    @ObservedObject var controller: VirtualMachineController
+    @State private var progress: Double?
+
+    var body: some View {
+        Section("Driver Disc") {
+            if controller.config.driverMedia != nil {
+                Button("Eject Driver Disc") {
+                    do { try controller.updateConfig { $0.ejectDriverMedia(in: bundle) } } catch { model.report(error) }
+                }
+            } else if let progress {
+                ProgressView("Downloading Windows drivers…", value: progress)
+            } else {
+                Button("Attach Driver Disc") { attach() }
+            }
+            Text("Windows that Vitrine did not install, such as an imported VM, has no driver for Vitrine's display or, on Arm, its network adapter. Attach the disc, start Windows, then open the VITRINE_DRIVERS disc and run install.cmd. Eject the disc afterwards.")
+                .font(.caption).foregroundStyle(.secondary)
+        }
+    }
+
+    private func attach() {
+        progress = 0
+        Task { @MainActor in
+            defer { progress = nil }
+            do {
+                let iso = try await WindowsCreator.fetchVirtioWin { f in Task { @MainActor in if progress != nil { progress = f } } }
+                // The download takes a while: the VM may have been started or suspended meanwhile.
+                guard controller.state == .stopped || controller.state == .error, !bundle.hasSavedState else {
+                    throw VitrineError.invalidConfig("shut \(bundle.name) down (not suspend) before changing its discs")
+                }
+                try controller.updateConfig { try WindowsDriverDisc.attach(to: &$0, in: bundle, virtioWinISO: iso) }
+            } catch { model.report(error, "Could not attach the driver disc") }
+        }
+    }
+}
+
 private struct DiskCapacitySection: View {
     @EnvironmentObject var model: AppModel
     @ObservedObject var controller: VirtualMachineController

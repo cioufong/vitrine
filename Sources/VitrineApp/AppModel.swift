@@ -40,6 +40,40 @@ final class AppModel: ObservableObject {
     private var subscriptions: [String: AnyCancellable] = [:]
     /// Pending app-catalog requests by bundle path (see createLaunchers).
     var catalogWaiters: [String: (AppCatalog) -> Void] = [:]
+    /// The import under way (File ▸ Import…, or a drop on the Control Center), if any.
+    let importSession = VMImportSession()
+
+    /// Asks before an import under way is thrown away by quitting. True to go ahead.
+    static func confirmStoppingImport() -> Bool {
+        let alert = NSAlert()
+        alert.messageText = String(localized: "A virtual machine is being imported")
+        alert.informativeText = String(localized: "Quitting stops the import and removes the partly imported virtual machine. The original is not changed.")
+        alert.addButton(withTitle: String(localized: "Keep Vitrine Open"))
+        alert.addButton(withTitle: String(localized: "Stop Import and Quit"))
+        alert.alertStyle = .warning
+        NSApp.activate()
+        return alert.runModal() != .alertFirstButtonReturn
+    }
+
+    /// Quit from the menus. AppKit refuses to quit while a window shows a sheet, before the app
+    /// delegate is asked, so with the import sheet up Quit did nothing at all. Here the import is
+    /// settled first (asking if one is running) and its sheet closed; then the app quits as usual.
+    func requestQuit() {
+        guard importSession.isActive else { NSApp.terminate(nil); return }
+        if importSession.isBusy, !Self.confirmStoppingImport() { return }
+        Task { @MainActor in
+            await importSession.cancelAndWait()
+            for _ in 0..<100 where importSession.isBusy { try? await Task.sleep(nanoseconds: 50_000_000) }
+            importSession.close()
+            // The sheet takes a moment to leave its window; quitting before that is refused again.
+            for _ in 0..<60 where NSApp.windows.contains(where: { $0.attachedSheet != nil }) {
+                try? await Task.sleep(nanoseconds: 50_000_000)
+            }
+            // Not from inside this task: quitting with VMs running waits in a nested run loop for
+            // work that runs on the main actor, which this task would still be holding.
+            RunLoop.main.perform { NSApp.terminate(nil) }
+        }
+    }
 
     struct AlertItem: Identifiable {
         let id = UUID()
@@ -91,6 +125,10 @@ final class AppModel: ObservableObject {
         }
         watchLibrary()
         watchClipboardFocus()
+        importSession.onImported = { [weak self] bundle in
+            self?.refresh()
+            self?.selection = bundle
+        }
     }
 
     /// Before anything starts: ends QEMUs left running by an earlier Vitrine process that died

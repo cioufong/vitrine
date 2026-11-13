@@ -38,10 +38,16 @@ VMs
              [--disposable on|off]       Discard every run's changes when the VM stops
              [--gdb PORT|off]            QEMU GDB stub on 127.0.0.1:PORT
              [--secure-boot on|off]      x86_64 QEMU: Secure Boot with Microsoft keys (resets UEFI variables)
+             [--basic-display on|off]    QEMU Windows: plain framebuffer for guests without the virtio display driver
+  drivers <name> [--eject]               QEMU Windows: attach (or eject) a disc of virtio drivers for a guest
+                                         without them, such as an imported one; run install.cmd from it
   clone <name> <new-name>                Instant APFS clone with a fresh identity
   import <disk.qcow2|.vmdk|.vhdx|.vdi|.img> --name N [--os linux|windows] [--arch aarch64|x86_64] [--cpus N] [--memory 4G]
                                          New VM booting a converted copy of another tool's disk
   import <VM.utm> [--name N]             Import a UTM virtual machine
+  import <VM.ova|.ovf|.vmwarevm|.vmx|.pvm|.vbox|folder> [--name N] [--cpus N] [--memory 4G] [--dry-run]
+                                         Import a whole VM from an OVA/OVF package, VMware, Parallels or
+                                         VirtualBox (UEFI guests; --dry-run prints the plan and writes nothing)
          … [--user NAME --password PW]   Guest account for exec, push/pull and agent installs
                                          (--password-stdin reads it from stdin, out of sight of ps)
   disk add <name> <image> [--ro]         Attach a converted copy of a disk image (VM shut down)
@@ -117,7 +123,7 @@ struct Args {
     var options: [String: String] = [:]
     var flags: Set<String> = []
 
-    init(_ argv: ArraySlice<String>, flagNames: Set<String> = ["gui", "recovery", "force", "ro", "rosetta", "console", "all", "eject", "password-stdin"]) {
+    init(_ argv: ArraySlice<String>, flagNames: Set<String> = ["gui", "recovery", "force", "ro", "rosetta", "console", "all", "eject", "password-stdin", "dry-run"]) {
         var it = argv.makeIterator()
         while let a = it.next() {
             if a == "--" {
@@ -351,7 +357,7 @@ do {
             // Re-read only after locking: no start/snapshot/config transaction may race this edit.
             var c = try b.loadConfig()
             let changingHardware = growTo != nil || args.flags.contains("eject")
-                || ["cpus", "memory", "display", "nested", "network", "secure-boot"].contains(where: { args.options[$0] != nil })
+                || ["cpus", "memory", "display", "nested", "network", "secure-boot", "basic-display"].contains(where: { args.options[$0] != nil })
             if changingHardware, b.hasSavedState {
                 throw VitrineError.invalidConfig("shut \(b.name) down (not suspend) before changing hardware or ejecting media")
             }
@@ -390,6 +396,12 @@ do {
                 }
             }
             if let v = args.options["secure-boot"] { c.features.secureBoot = try onOff(v, "--secure-boot") }
+            if let v = args.options["basic-display"] {
+                guard c.guestOS == .windows, c.effectiveBackend == .qemu else {
+                    throw VitrineError.invalidConfig("--basic-display is for Windows guests on QEMU")
+                }
+                c.display.basicFramebuffer = try onOff(v, "--basic-display")
+            }
             if let v = args.options["gdb"] { c.features.gdbPort = v.lowercased() == "off" ? nil : need(Int(v), "bad --gdb, want a port or off") }
             if let v = args.options["display"] {
                 let parts = v.split(separator: "@", omittingEmptySubsequences: false)
@@ -427,6 +439,39 @@ do {
         }
         print("updated \(b.name)")
 
+    case "drivers":
+        let b = try VMLibrary.find(args.arg(0, "name"))
+        let guest = try b.loadConfig()
+        guard guest.guestOS == .windows, guest.effectiveBackend == .qemu else {
+            die("the driver disc is for Windows guests on QEMU")
+        }
+        func whileShutDown(_ edit: (inout VMConfig) throws -> Void) throws {
+            try b.withExclusiveLock {
+                // Re-read only after locking: no start/snapshot/config transaction may race this edit.
+                var c = try b.loadConfig()
+                if b.hasSavedState {
+                    throw VitrineError.invalidConfig("shut \(b.name) down (not suspend) before changing its discs")
+                }
+                try edit(&c)
+                try c.validate(bundle: b)
+                try b.saveConfig(c)
+            }
+        }
+        if args.flags.contains("eject") {
+            var ejected: String?
+            try whileShutDown { ejected = $0.ejectDriverMedia(in: b) }
+            print(ejected == nil ? "\(b.name) has no driver disc" : "ejected the driver disc from \(b.name)")
+            break
+        }
+        runAsync {
+            FileHandle.standardError.write(Data("fetching virtio-win drivers…\n".utf8))
+            let iso = try await WindowsCreator.fetchVirtioWin { progressBar($0, "virtio-win") }
+            FileHandle.standardError.write(Data("\n".utf8))
+            try whileShutDown { try WindowsDriverDisc.attach(to: &$0, in: b, virtioWinISO: iso) }
+            print("attached the driver disc to \(b.name)")
+            print("Start Windows, open the VITRINE_DRIVERS disc and run install.cmd; then `vitrinectl drivers \(b.name) --eject`.")
+        }
+
     case "ip":
         let b = try VMLibrary.find(args.arg(0, "name"))
         let c = try b.loadConfig()
@@ -463,13 +508,39 @@ do {
     case "import":
         let src = URL(fileURLWithPath: (args.arg(0, "path") as NSString).expandingTildeInPath).standardizedFileURL
         let b: VMBundle
-        if src.pathExtension.lowercased() == "utm" {
+        if let format = try WholeVMImporter.detectFormat(src) {
+            let plan = try WholeVMImporter.inspect(src, name: args.options["name"])
+            if args.flags.contains("dry-run") {
+                print(plan.summary)
+                exit(plan.canImport ? 0 : 2)
+            }
+            guard plan.canImport else {
+                print(plan.summary)
+                die("can't import this \(format.displayName) VM (see BLOCKED above)", code: 2)
+            }
+            for w in plan.warnings { print("warning: \(w.message)") }
+            var overrides = WholeVMImporter.Overrides(name: args.options["name"])
+            if let v = args.options["cpus"] { overrides.cpuCount = need(Int(v), "bad --cpus") }
+            if let v = args.options["memory"] { overrides.memoryMiB = parseMiB(v) }
+            // Ctrl-C stops the conversion and removes the half-made VM.
+            let cancellation = DiskImport.Cancellation()
+            signal(SIGINT, SIG_IGN)
+            let sigint = DispatchSource.makeSignalSource(signal: SIGINT, queue: .global())
+            sigint.setEventHandler { cancellation.cancel() }
+            sigint.resume()
+            defer { sigint.cancel(); signal(SIGINT, SIG_DFL) }
+            b = try WholeVMImporter.execute(plan, overrides: overrides, cancellation: cancellation) { print($0) }
+            let c = try b.loadConfig()
+            print("imported \(src.lastPathComponent) as \(b.name) (\(c.guestOS.rawValue), \(c.effectiveArchitecture.rawValue), \(c.effectiveBackend.rawValue)) → \(b.url.path)")
+        } else if args.flags.contains("dry-run") {
+            die("--dry-run applies to whole-VM imports (OVA/OVF, VMware, Parallels, VirtualBox)")
+        } else if src.pathExtension.lowercased() == "utm" {
             let r = try UTMImporter.importVM(src, name: args.options["name"])
             b = r.bundle
             print("imported \(src.lastPathComponent) as \(b.name) → \(b.url.path)")
             for note in r.notes { print("note: \(note)") }
         } else {
-            var o = VMImporter.DiskOptions(name: args.options["name"] ?? src.deletingPathExtension().lastPathComponent)
+            var o = VMImporter.DiskOptions(name: try VMImportName.resolve(explicit: args.options["name"], derived: src.deletingPathExtension().lastPathComponent))
             if let v = args.options["os"] { o.guestOS = need(VMConfig.GuestOS(rawValue: v.lowercased()), "bad --os, want linux or windows") }
             if let v = args.options["arch"] { o.architecture = need(VMConfig.Architecture(rawValue: v.lowercased() == "x64" ? "x86_64" : v.lowercased()), "bad --arch") }
             if let v = args.options["cpus"] { o.cpuCount = need(Int(v), "bad --cpus") }
@@ -477,6 +548,7 @@ do {
             b = try VMImporter.importDisk(src, o)
             let c = try b.loadConfig()
             print("imported \(src.lastPathComponent) as \(b.name) (\(c.guestOS.rawValue), \(c.effectiveArchitecture.rawValue), \(c.effectiveBackend.rawValue)) → \(b.url.path)")
+            if c.display.basicFramebuffer { print("  note: \(VMConfig.DisplayConfig.basicFramebufferImportNote)") }
         }
         // The guest account lets vitrinectl exec/push/pull and agent installs log in over SSH.
         if let user = args.options["user"] {
