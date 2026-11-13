@@ -59,7 +59,7 @@ final class MediaSafetyTests: XCTestCase {
         let bundle = VMBundle(url: root.appendingPathComponent("vm.vitrinevm"))
         try FileManager.default.createDirectory(at: bundle.url, withIntermediateDirectories: true)
         // One CPU: validation also checks the host has that many, and CI runners have few.
-        var c = VMConfig(name: "vm", guestOS: .windows, cpuCount: 1, memoryMiB: 1024)
+        var c = VMConfig(name: "vm", guestOS: .windows, cpuCount: 1, memoryMiB: 2048)
         c.backend = .qemu
         c.disks = [.init(path: "disk.img")]
         try Data().write(to: bundle.resolve("disk.img"))
