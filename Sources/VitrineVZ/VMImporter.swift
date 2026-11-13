@@ -24,6 +24,8 @@ public enum VMImporter {
         config.architecture = o.architecture
         config.backend = (o.guestOS == .linux && o.architecture == .aarch64) ? .vz : .qemu
         if o.guestOS == .linux { config.boot = .efi }
+        // A Windows disk from elsewhere may lack the virtio display driver (see basicFramebuffer).
+        if o.guestOS == .windows { config.display.basicFramebuffer = true }
         config.disks = [.init(path: "disk.img", interface: config.effectiveBackend == .qemu ? .nvme : .virtio)]
         let url = VMLibrary.bundleURL(named: o.name)
         guard !FileManager.default.fileExists(atPath: url.path) else { throw VitrineError.invalidConfig("a VM named \(o.name) already exists") }

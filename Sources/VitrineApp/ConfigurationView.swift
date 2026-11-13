@@ -362,6 +362,11 @@ private struct HardwarePane: View {
                     }
                 }
                 Toggle("Resize guest display with window", isOn: binding(\.display.autoResize))
+                if controller.config.guestOS == .windows && controller.config.effectiveBackend == .qemu {
+                    Toggle("Basic display", isOn: binding(\.display.basicFramebuffer))
+                    Text("For Windows without the virtio display driver, such as an imported VM: the screen works at a fixed resolution. Turn it off once the virtio-win drivers are installed in Windows.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
                 if controller.config.effectiveBackend == .qemu {
                     Picker("Scaling", selection: binding(\.features.pixelPerfectScaling)) {
                         Text("Smooth").tag(false)

@@ -38,6 +38,7 @@ VMs
              [--disposable on|off]       Discard every run's changes when the VM stops
              [--gdb PORT|off]            QEMU GDB stub on 127.0.0.1:PORT
              [--secure-boot on|off]      x86_64 QEMU: Secure Boot with Microsoft keys (resets UEFI variables)
+             [--basic-display on|off]    QEMU Windows: plain framebuffer for guests without the virtio display driver
   clone <name> <new-name>                Instant APFS clone with a fresh identity
   import <disk.qcow2|.vmdk|.vhdx|.vdi|.img> --name N [--os linux|windows] [--arch aarch64|x86_64] [--cpus N] [--memory 4G]
                                          New VM booting a converted copy of another tool's disk
@@ -351,7 +352,7 @@ do {
             // Re-read only after locking: no start/snapshot/config transaction may race this edit.
             var c = try b.loadConfig()
             let changingHardware = growTo != nil || args.flags.contains("eject")
-                || ["cpus", "memory", "display", "nested", "network", "secure-boot"].contains(where: { args.options[$0] != nil })
+                || ["cpus", "memory", "display", "nested", "network", "secure-boot", "basic-display"].contains(where: { args.options[$0] != nil })
             if changingHardware, b.hasSavedState {
                 throw VitrineError.invalidConfig("shut \(b.name) down (not suspend) before changing hardware or ejecting media")
             }
@@ -390,6 +391,12 @@ do {
                 }
             }
             if let v = args.options["secure-boot"] { c.features.secureBoot = try onOff(v, "--secure-boot") }
+            if let v = args.options["basic-display"] {
+                guard c.guestOS == .windows, c.effectiveBackend == .qemu else {
+                    throw VitrineError.invalidConfig("--basic-display is for Windows guests on QEMU")
+                }
+                c.display.basicFramebuffer = try onOff(v, "--basic-display")
+            }
             if let v = args.options["gdb"] { c.features.gdbPort = v.lowercased() == "off" ? nil : need(Int(v), "bad --gdb, want a port or off") }
             if let v = args.options["display"] {
                 let parts = v.split(separator: "@", omittingEmptySubsequences: false)
@@ -477,6 +484,7 @@ do {
             b = try VMImporter.importDisk(src, o)
             let c = try b.loadConfig()
             print("imported \(src.lastPathComponent) as \(b.name) (\(c.guestOS.rawValue), \(c.effectiveArchitecture.rawValue), \(c.effectiveBackend.rawValue)) → \(b.url.path)")
+            if c.display.basicFramebuffer { print("  note: \(VMConfig.DisplayConfig.basicFramebufferImportNote)") }
         }
         // The guest account lets vitrinectl exec/push/pull and agent installs log in over SSH.
         if let user = args.options["user"] {

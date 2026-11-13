@@ -218,6 +218,13 @@ public struct VMConfig: Codable, Equatable, Sendable {
         public var pixelsPerInch: Int = 220
         /// Resize the guest display when the window resizes (macOS 14+).
         public var autoResize: Bool = true
+        /// QEMU Windows guests: show the display on a plain framebuffer (ramfb on aarch64, standard
+        /// VGA on x86_64), which Windows' own basic display driver can use, instead of virtio-gpu,
+        /// which shows nothing until the guest has the viogpudo driver. Set for imported Windows
+        /// guests; fixed resolution, so turn it off once the guest has the driver.
+        public var basicFramebuffer: Bool = false
+        /// What an importer tells the user after turning `basicFramebuffer` on.
+        public static let basicFramebufferImportNote = "Windows starts on a basic display at a fixed resolution, since Vitrine's display needs a virtio driver the guest may not have; after installing the virtio-win drivers in the guest, turn off Basic display under Configuration ▸ Graphics"
         public init() {}
         public init(widthPixels: Int, heightPixels: Int, pixelsPerInch: Int) {
             self.widthPixels = widthPixels; self.heightPixels = heightPixels; self.pixelsPerInch = pixelsPerInch
@@ -591,6 +598,7 @@ extension VMConfig.DisplayConfig {
         heightPixels = try c.decode(.heightPixels, default: heightPixels)
         pixelsPerInch = try c.decode(.pixelsPerInch, default: pixelsPerInch)
         autoResize = try c.decode(.autoResize, default: autoResize)
+        basicFramebuffer = try c.decode(.basicFramebuffer, default: basicFramebuffer)
     }
 }
 
