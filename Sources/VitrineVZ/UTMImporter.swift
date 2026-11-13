@@ -31,7 +31,10 @@ public enum UTMImporter {
             throw VitrineError.unsupported("UTM configuration version \(root["ConfigurationVersion"] ?? "?") isn't supported (expected 4)")
         }
         let info = root["Information"] as? [String: Any] ?? [:]
-        let vmName = name ?? (info["Name"] as? String) ?? src.deletingPathExtension().lastPathComponent
+        // The name becomes the bundle's path: an explicit one must be valid, one from the
+        // (untrusted) config.plist is made valid ("../../x" would otherwise leave the library).
+        let derivedName = (info["Name"] as? String) ?? src.deletingPathExtension().lastPathComponent
+        let vmName = try VMImportName.resolve(explicit: name, derived: derivedName)
         let system = root["System"] as? [String: Any] ?? [:]
         let bundleDir = src.resolvingSymlinksInPath().standardizedFileURL
         let dataDir = bundleDir.appendingPathComponent("Data", isDirectory: true).resolvingSymlinksInPath().standardizedFileURL
@@ -48,6 +51,7 @@ public enum UTMImporter {
             return file
         }
         var notes: [String] = []
+        if name == nil, vmName != derivedName { notes.append("named the VM \(vmName) (VM names use letters, digits, '.', '-' and '_')") }
 
         var config = VMConfig(name: vmName, guestOS: .linux)
         // A VM made on a bigger Mac may ask for more than this one has: cap it rather than refuse it.
@@ -209,9 +213,8 @@ public enum UTMImporter {
 
         let url = VMLibrary.bundleURL(named: vmName)
         guard !FileManager.default.fileExists(atPath: url.path) else { throw VitrineError.invalidConfig("a VM named \(vmName) already exists") }
-        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-        let bundle = try VMBundle.create(at: url, config: config)
-        do {
+        // Locked and hidden while it is filled in; deleted again if anything fails.
+        let bundle = try VMBundle.create(at: url, config: config) { bundle, config in
             for (rel, data) in platformFiles { try data.write(to: bundle.resolve(rel)) }
             for c in copies {
                 let dest = bundle.resolve(c.to)
@@ -219,10 +222,6 @@ public enum UTMImporter {
                 if c.convert { try DiskImport.convert(c.from, to: dest) } else { try DiskImage.clone(c.from, to: dest) }
             }
             try config.validate(bundle: bundle)
-            try bundle.saveConfig(config)
-        } catch {
-            try? FileManager.default.removeItem(at: url)
-            throw error
         }
         return Result(bundle: bundle, notes: notes)
     }

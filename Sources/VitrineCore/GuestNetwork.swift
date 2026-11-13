@@ -21,8 +21,7 @@ public enum GuestNetwork {
                 if line.hasPrefix("name=") { name = String(line.dropFirst("name=".count)) }
                 if line.hasPrefix("hw_address=") {
                     // Format: "1,a:b:c:d:e:f" — type prefix, octets without leading zeros.
-                    let v = line.dropFirst("hw_address=".count)
-                    hw = v.split(separator: ",", maxSplits: 1).last.map(String.init)
+                    hw = hardwareAddress(fromLeaseField: String(line.dropFirst("hw_address=".count)))
                 }
                 if line.hasPrefix("lease=") {
                     lease = UInt64(line.dropFirst("lease=".count).replacingOccurrences(of: "0x", with: ""), radix: 16) ?? 0
@@ -31,6 +30,28 @@ public enum GuestNetwork {
             if let ip, matches(hw, name), lease >= (best?.lease ?? 0) { best = (ip, lease) }
         }
         return best
+    }
+
+    /// The MAC in a lease's `hw_address`: "1,a:b:c:d:e:f" for a plain Ethernet client, or
+    /// "ff,<IAID>:<DUID>" for an RFC 4361 client identifier (systemd-networkd and other DHCP
+    /// clients of guests not set up by Vitrine). Only DUID-LLT and DUID-LL on Ethernet carry the
+    /// MAC; other identifiers return nil and the guest is found through ARP instead.
+    static func hardwareAddress(fromLeaseField field: String) -> String? {
+        let parts = field.split(separator: ",", maxSplits: 1).map(String.init)
+        guard parts.count == 2 else { return parts.last }
+        guard parts[0].lowercased() == "ff" else { return parts[1] }
+        let bytes = parts[1].split(separator: ":").compactMap { UInt8($0, radix: 16) }
+        guard bytes.count == parts[1].split(separator: ":").count, bytes.count > 4 else { return nil }
+        let duid = Array(bytes.dropFirst(4)) // IAID
+        func mac(_ b: ArraySlice<UInt8>) -> String? {
+            b.count == 6 ? b.map { String($0, radix: 16) }.joined(separator: ":") : nil
+        }
+        guard duid.count >= 4, duid[2] == 0, duid[3] == 1 else { return nil } // hardware type: Ethernet
+        switch (duid[0], duid[1]) {
+        case (0, 1): return duid.count == 14 ? mac(duid[8...]) : nil // DUID-LLT: type, hw type, time, MAC
+        case (0, 3): return duid.count == 10 ? mac(duid[4...]) : nil // DUID-LL: type, hw type, MAC
+        default: return nil
+        }
     }
 
     /// Host name Vitrine assigns to Linux guests it provisions.
