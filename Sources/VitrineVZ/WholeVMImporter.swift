@@ -379,14 +379,14 @@ public enum WholeVMImporter {
                     try cancellation?.check()
                     let info: DiskImport.Info
                     if let m = ref.member {
-                        info = try DiskImport.info(spec: DiskImport.blockSpec(file: file, format: format, window: (m.offset, m.size)))
+                        info = try DiskImport.info(spec: DiskImport.blockSpec(file: file, format: format, window: (m.offset, m.size)), cancellation: cancellation)
                         if let b = info.backingFiles.first { throw VitrineError.unsupported("it reads from another file (\(b))") }
                         // The only file an OVA member's image may read is itself (the json: node).
                         if let other = info.extents.first(where: { !$0.hasPrefix("json:") }) ?? (info.extents.count > 1 ? info.extents[1] : nil) {
                             throw VitrineError.unsupported("it reads from another file (\(other))")
                         }
                     } else {
-                        info = try DiskImport.info(file, format: format)
+                        info = try DiskImport.info(file, format: format, cancellation: cancellation)
                         try DiskImport.checkSelfContained(file, info, root: f.root)
                     }
                     disk.virtualSize = info.virtualSize

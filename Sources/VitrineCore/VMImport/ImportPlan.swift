@@ -21,7 +21,7 @@ public struct ImportPlan: Codable, Sendable, Equatable {
     /// One reason not to import, or one thing to know about the import. `code` is stable (for the
     /// app to pick an icon or a help link); `message` is English prose for the user.
     public struct Issue: Codable, Sendable, Equatable, CustomStringConvertible {
-        public enum Code: String, Codable, Sendable {
+        public enum Code: String, Codable, Sendable, CaseIterable {
             // Blockers
             case pathOutsideSource, diskMissing, diskFormat, noDisks, snapshots, savedState, encrypted,
                  running, biosOnly, noBootPartition, macOSGuest, unsupportedArchitecture, archive,

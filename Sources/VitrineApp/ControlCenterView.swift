@@ -14,17 +14,32 @@ struct ControlCenterView: View {
             if model.bundles.isEmpty {
                 EmptyLibraryView()
             } else {
-                ScrollView {
-                    LazyVStack(spacing: 8) {
-                        ForEach(model.bundles, id: \.self) { b in
-                            if let c = model.controller(for: b) {
-                                VMCard(bundle: b, controller: c)
-                            } else {
-                                UnreadableVMCard(bundle: b)
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        LazyVStack(spacing: 8) {
+                            ForEach(model.bundles, id: \.self) { b in
+                                Group {
+                                    if let c = model.controller(for: b) {
+                                        VMCard(bundle: b, controller: c)
+                                    } else {
+                                        UnreadableVMCard(bundle: b)
+                                    }
+                                }
+                                .overlay {
+                                    // A VM just imported or cloned.
+                                    if model.selection == b {
+                                        RoundedRectangle(cornerRadius: 10).strokeBorder(Color.accentColor, lineWidth: 2)
+                                            .allowsHitTesting(false)
+                                    }
+                                }
+                                .id(b)
                             }
                         }
+                        .padding(12)
                     }
-                    .padding(12)
+                    .onChange(of: model.selection) { _, sel in
+                        if let sel { withAnimation { proxy.scrollTo(sel, anchor: .center) } }
+                    }
                 }
             }
         }
@@ -32,16 +47,22 @@ struct ControlCenterView: View {
         .background(.background)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
+                Button { model.chooseImportSource() } label: { Label("Import", systemImage: "square.and.arrow.down") }
+                    .help("Import a virtual machine or disk image from another app")
+            }
+            ToolbarItem(placement: .primaryAction) {
                 Button { openWindow(id: "assistant") } label: { Label("New", systemImage: "plus") }
                     .help("Create a new virtual machine")
             }
         }
+        .modifier(ImportHost(session: model.importSession))
         .navigationTitle("Control Center")
         .onAppear { model.openVMWindow = { [openWindow] path in openWindow(id: "vm", value: path) } }
     }
 }
 
 private struct EmptyLibraryView: View {
+    @EnvironmentObject var model: AppModel
     @Environment(\.openWindow) private var openWindow
     var body: some View {
         VStack(spacing: 14) {
@@ -53,6 +74,10 @@ private struct EmptyLibraryView: View {
                 .multilineTextAlignment(.center).foregroundStyle(.secondary).frame(maxWidth: 280)
             Button("Create New…") { openWindow(id: "assistant") }
                 .buttonStyle(.borderedProminent).controlSize(.large)
+            Button("Import…") { model.chooseImportSource() }
+                .controlSize(.large)
+            Text("Or drop a VM from VMware, Parallels Desktop, VirtualBox or UTM, an OVA package or a disk image here.")
+                .font(.caption).multilineTextAlignment(.center).foregroundStyle(.secondary).frame(maxWidth: 280)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }

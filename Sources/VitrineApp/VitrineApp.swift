@@ -76,6 +76,16 @@ struct VitrineCommands: Commands {
     var body: some Commands {
         CommandGroup(replacing: .newItem) {
             Button("New…") { openWindow(id: "assistant") }.keyboardShortcut("n")
+            Button("Import…") {
+                // The import sheet lives on the Control Center, which may be closed.
+                openWindow(id: "control-center")
+                model.chooseImportSource()
+            }
+            .keyboardShortcut("i", modifiers: [.command, .shift])
+        }
+        CommandGroup(replacing: .appTermination) {
+            // Not the stock item: AppKit refuses to quit while the import sheet is up (see requestQuit).
+            Button("Quit Vitrine") { model.requestQuit() }.keyboardShortcut("q")
         }
         CommandGroup(after: .windowArrangement) {
             Button("Control Center") { openWindow(id: "control-center") }.keyboardShortcut("1", modifiers: [.command, .option])
@@ -164,7 +174,8 @@ struct StatusMenu: View {
         }
         Divider()
         Button("New…") { openWindow(id: "assistant"); NSApp.activate() }
-        Button("Quit Vitrine") { NSApp.terminate(nil) }
+        Button("Import…") { openWindow(id: "control-center"); NSApp.activate(); model.chooseImportSource() }
+        Button("Quit Vitrine") { model.requestQuit() }
     }
 }
 
@@ -253,7 +264,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard let model = AppModel.shared else { return .terminateNow }
         // Dock icons go only once quitting is certain (the user may still cancel below).
         let removeDockIcons = { MainActor.assumeIsolated { for b in model.bundles { GuestAppDock.shared.removeAll(b) } } }
-        guard !model.liveControllers.isEmpty else { removeDockIcons(); return .terminateNow }
+        // An import under way is stopped (its half-made VM removed) before quitting, once the user agrees.
+        let importing = MainActor.assumeIsolated { model.importSession.isBusy }
+        if importing, !MainActor.assumeIsolated({ AppModel.confirmStoppingImport() }) { return .terminateCancel }
+        guard importing || !model.liveControllers.isEmpty else { removeDockIcons(); return .terminateNow }
         // VMs with a drive attached can't be suspended safely: ask before shutting them down.
         let blocked = MainActor.assumeIsolated { model.activeControllers.filter { $0.suspendBlocker != nil } }
         if !blocked.isEmpty {
@@ -266,7 +280,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if alert.runModal() == .alertFirstButtonReturn { return .terminateCancel }
         }
         Task { @MainActor in
-            let quit = await model.prepareVMsForQuit()
+            if importing { await model.importSession.cancelAndWait() }
+            let quit = model.liveControllers.isEmpty ? true : await model.prepareVMsForQuit()
             if quit { removeDockIcons() }
             NSApp.reply(toApplicationShouldTerminate: quit)
         }

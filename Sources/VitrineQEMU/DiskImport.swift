@@ -83,15 +83,16 @@ public enum DiskImport {
     /// Format and virtual size of an image. With `format`, the image is opened as that format
     /// (`-f`) instead of probed: an imported VM's configuration says what its disks are, and a
     /// probe can be fooled (a Parallels `.hdd` probes as raw).
-    public static func info(_ url: URL, format: String? = nil) throws -> Info {
+    /// `cancellation` stops qemu-img while it reads (an image on a slow or stalled volume).
+    public static func info(_ url: URL, format: String? = nil, cancellation: Cancellation? = nil) throws -> Info {
         var args = ["info", "--output=json"]
         if let format { args += ["-f", format] }
-        return try parseInfo(run(args + [url.path]), what: url.lastPathComponent)
+        return try parseInfo(run(args + [url.path], cancellation: cancellation), what: url.lastPathComponent)
     }
 
     /// `info` for a block-layer description (`blockSpec`).
-    public static func info(spec: [String: Any]) throws -> Info {
-        try parseInfo(run(["info", "--output=json", jsonFilename(spec)]), what: "the disk")
+    public static func info(spec: [String: Any], cancellation: Cancellation? = nil) throws -> Info {
+        try parseInfo(run(["info", "--output=json", jsonFilename(spec)], cancellation: cancellation), what: "the disk")
     }
 
     static func parseInfo(_ data: Data, what: String) throws -> Info {
