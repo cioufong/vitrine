@@ -38,7 +38,7 @@ LOCALIZATIONS=""
 for l in "$APP"/Contents/Resources/*.lproj; do
   [ -d "$l" ] && LOCALIZATIONS+="<string>$(basename "$l" .lproj)</string>"
 done
-VERSION="$(git describe --tags --always 2>/dev/null || echo 0.2.1)"
+VERSION="$(git describe --tags --always 2>/dev/null || echo 0.3.0)"
 cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -52,7 +52,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>CFBundleExecutable</key><string>Vitrine</string>
   <key>CFBundleIconFile</key><string>AppIcon</string>
   <key>CFBundlePackageType</key><string>APPL</string>
-  <key>CFBundleShortVersionString</key><string>0.2.1</string>
+  <key>CFBundleShortVersionString</key><string>0.3.0</string>
   <key>CFBundleVersion</key><string>${VERSION}</string>
   <key>LSMinimumSystemVersion</key><string>14.0</string>
   <key>LSApplicationCategoryType</key><string>public.app-category.developer-tools</string>

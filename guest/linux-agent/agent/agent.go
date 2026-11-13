@@ -18,7 +18,7 @@ import (
 )
 
 // Version is reported in Hello.
-const Version = "0.2.1"
+const Version = "0.3.0"
 
 // Polling intervals.
 var (

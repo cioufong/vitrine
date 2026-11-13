@@ -103,7 +103,7 @@ claude mcp add vitrine -- "$PWD/.build/release/vitrinectl" mcp  # 或任何 MCP 
   橋接（透過只需安裝一次的小型 root 輔助程式，以 root 執行前會先驗證其程式碼簽章）／無網路，兩種後端都支援 TCP 與 UDP 連接埠轉送
   （[docs/networking.md](docs/networking.md)）、
   共享資料夾（VZ 用 virtiofs、QEMU Linux 用 9p）、序列主控台（`vitrinectl console`，可寫成腳本）、
-  QEMU GDB stub、透過 SSH 推送／拉取檔案、匯入 qcow2/VMDK/VHDX/VDI 磁碟與 UTM 虛擬機器、
+  QEMU GDB stub、透過 SSH 推送／拉取檔案、匯入 VMware、Parallels、VirtualBox、UTM 的虛擬機器與 OVA/OVF 套件（或單一 qcow2/VMDK/VHDX/VDI 磁碟）、
   用於自動化的 `vitrine://start|show|suspend|stop?vm=NAME` URL、虛擬機器執行時讓 Mac 保持喚醒，
   以及 x86_64 QEMU 客體系統使用 Microsoft 金鑰的 Secure Boot（已驗證 Debian 的已簽署 shim → GRUB；
   開啟 Secure Boot 的 Windows 尚未驗證）。
@@ -211,7 +211,7 @@ vitrinectl network create lab; vitrinectl set deb --network network:lab   # 虛�
 vitrinectl set deb --network bridged:en0                  # 在區域網路上擁有自己的位址（docs/networking.md）
 vitrinectl push deb ./notes /home/me/notes                # 複製進去（pull 則是複製出來）
 vitrinectl console deb                                    # 序列主控台；Ctrl-] 中斷連接
-vitrinectl import old.utm                                 # 或 .qcow2/.vmdk/.vhdx/.vdi 磁碟
+vitrinectl import old.utm                                 # 或 .vmwarevm/.pvm/.vbox/.ova，或 .qcow2/.vmdk/.vhdx/.vdi 磁碟
 open 'vitrine://start?vm=deb'                             # 從腳本 start/show/suspend/stop
 vitrinectl list
 ```
