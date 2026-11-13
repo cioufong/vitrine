@@ -39,6 +39,8 @@ VMs
              [--gdb PORT|off]            QEMU GDB stub on 127.0.0.1:PORT
              [--secure-boot on|off]      x86_64 QEMU: Secure Boot with Microsoft keys (resets UEFI variables)
              [--basic-display on|off]    QEMU Windows: plain framebuffer for guests without the virtio display driver
+  drivers <name> [--eject]               QEMU Windows: attach (or eject) a disc of virtio drivers for a guest
+                                         without them, such as an imported one; run install.cmd from it
   clone <name> <new-name>                Instant APFS clone with a fresh identity
   import <disk.qcow2|.vmdk|.vhdx|.vdi|.img> --name N [--os linux|windows] [--arch aarch64|x86_64] [--cpus N] [--memory 4G]
                                          New VM booting a converted copy of another tool's disk
@@ -436,6 +438,39 @@ do {
             if let bytes = growTo { print("grew the system disk to \(formatBytes(bytes)); the guest partition is extended on next start") }
         }
         print("updated \(b.name)")
+
+    case "drivers":
+        let b = try VMLibrary.find(args.arg(0, "name"))
+        let guest = try b.loadConfig()
+        guard guest.guestOS == .windows, guest.effectiveBackend == .qemu else {
+            die("the driver disc is for Windows guests on QEMU")
+        }
+        func whileShutDown(_ edit: (inout VMConfig) throws -> Void) throws {
+            try b.withExclusiveLock {
+                // Re-read only after locking: no start/snapshot/config transaction may race this edit.
+                var c = try b.loadConfig()
+                if b.hasSavedState {
+                    throw VitrineError.invalidConfig("shut \(b.name) down (not suspend) before changing its discs")
+                }
+                try edit(&c)
+                try c.validate(bundle: b)
+                try b.saveConfig(c)
+            }
+        }
+        if args.flags.contains("eject") {
+            var ejected: String?
+            try whileShutDown { ejected = $0.ejectDriverMedia(in: b) }
+            print(ejected == nil ? "\(b.name) has no driver disc" : "ejected the driver disc from \(b.name)")
+            break
+        }
+        runAsync {
+            FileHandle.standardError.write(Data("fetching virtio-win drivers…\n".utf8))
+            let iso = try await WindowsCreator.fetchVirtioWin { progressBar($0, "virtio-win") }
+            FileHandle.standardError.write(Data("\n".utf8))
+            try whileShutDown { try WindowsDriverDisc.attach(to: &$0, in: b, virtioWinISO: iso) }
+            print("attached the driver disc to \(b.name)")
+            print("Start Windows, open the VITRINE_DRIVERS disc and run install.cmd; then `vitrinectl drivers \(b.name) --eject`.")
+        }
 
     case "ip":
         let b = try VMLibrary.find(args.arg(0, "name"))
