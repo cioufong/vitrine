@@ -23,7 +23,7 @@ hand-made bundles. Each row was tested on its pull request's branch before it wa
 | VirtualBox arm64 OVF; BIOS-only, snapshot, saved-state and encrypted VMs | #31 | Dry-run only: the OVF plans cleanly, the others are refused with the reason |
 | Import from the app: review sheet, progress, cancel | #32 | PASS: the plan's warnings are shown (checked in zh-Hant), a cancelled import leaves no partial VM |
 | Import VMs written by UTM (Arch Linux, Debian 11.5 Xfce; QEMU aarch64) | #33 | PASS: both boot; before the fix the Arch VM did not start and the Debian import failed |
-| Imported Windows 11 Arm (VirtualBox and VMware boxes): basic display | #34 | PASS: desktop at 800×600 on `ramfb`; suspend and resume work |
+| Imported Windows 11 Arm (VirtualBox and VMware boxes): basic display | #34 | PASS: both reach the desktop at 800×600 on `ramfb`; suspend and resume checked on the VirtualBox one |
 | Imported Windows 11 Arm: driver disc, `install.cmd`, network | #36 | PASS on both guests: NetKVM binds, 10.0.2.15, HTTPS out. On the VirtualBox guest also: suspend/resume with the disc, then eject and Basic display off boots on virtio-gpu at 2560×1600 |
 | Close the window of an Arm QEMU guest with sound | #35 | PASS: suspends, and reopening resumes where it was (it shut down before) |
 
