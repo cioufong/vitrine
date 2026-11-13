@@ -78,6 +78,7 @@ final class QEMUArgumentsTests: XCTestCase {
     func testDriverDiscInstallScriptElevatesAndInstallsEveryDriver() {
         let script = WindowsDriverDisc.installScript
         XCTAssertTrue(script.contains("Start-Process -Verb RunAs"))
+        XCTAssertTrue(script.contains(#"if "%~1"=="elevated" goto install"#), "one relaunch only")
         XCTAssertTrue(script.contains(#"pnputil /add-driver "%~dp0drivers\*.inf" /subdirs /install"#))
         XCTAssertTrue(script.contains("pnputil /scan-devices"))
     }
