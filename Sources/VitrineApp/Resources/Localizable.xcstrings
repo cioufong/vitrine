@@ -9364,24 +9364,24 @@
         }
       }
     },
-    "Windows that Vitrine did not install, such as an imported VM, has no driver for Vitrine's network adapter or display. Attach the disc, start Windows, then open the VITRINE_DRIVERS disc and run install.cmd. Eject the disc afterwards.": {
+    "Windows that Vitrine did not install, such as an imported VM, has no driver for Vitrine's display or, on Arm, its network adapter. Attach the disc, start Windows, then open the VITRINE_DRIVERS disc and run install.cmd. Eject the disc afterwards.": {
       "localizations": {
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "読み込んだ仮想マシンなど、Vitrine がインストールしていない Windows には、Vitrine のネットワークアダプタとディスプレイのドライバがありません。ディスクを接続して Windows を起動し、VITRINE_DRIVERS ディスクを開いて install.cmd を実行してください。終わったらディスクを取り出します。"
+            "value": "読み込んだ仮想マシンなど、Vitrine がインストールしていない Windows には、Vitrine のディスプレイのドライバがなく、Arm ではネットワークアダプタのドライバもありません。ディスクを接続して Windows を起動し、VITRINE_DRIVERS ディスクを開いて install.cmd を実行してください。終わったらディスクを取り出します。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "不是由 Vitrine 安装的 Windows（例如导入的虚拟机）没有 Vitrine 网络适配器和显示器的驱动程序。连接光盘并启动 Windows，然后打开 VITRINE_DRIVERS 光盘并运行 install.cmd。完成后请推出光盘。"
+            "value": "不是由 Vitrine 安装的 Windows（例如导入的虚拟机）没有 Vitrine 显示器的驱动程序，在 Arm 上也没有网络适配器的驱动程序。连接光盘并启动 Windows，然后打开 VITRINE_DRIVERS 光盘并运行 install.cmd。完成后请推出光盘。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "不是由 Vitrine 安裝的 Windows（例如匯入的虛擬機器）沒有 Vitrine 網路卡與顯示器的驅動程式。連接光碟並啟動 Windows，然後打開 VITRINE_DRIVERS 光碟並執行 install.cmd。完成後請退出光碟。"
+            "value": "不是由 Vitrine 安裝的 Windows（例如匯入的虛擬機器）沒有 Vitrine 顯示器的驅動程式，在 Arm 上也沒有網路卡的驅動程式。連接光碟並啟動 Windows，然後打開 VITRINE_DRIVERS 光碟並執行 install.cmd。完成後請退出光碟。"
           }
         }
       }

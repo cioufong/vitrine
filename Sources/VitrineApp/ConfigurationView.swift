@@ -619,7 +619,7 @@ private struct DriverDiscSection: View {
             } else {
                 Button("Attach Driver Disc") { attach() }
             }
-            Text("Windows that Vitrine did not install, such as an imported VM, has no driver for Vitrine's network adapter or display. Attach the disc, start Windows, then open the VITRINE_DRIVERS disc and run install.cmd. Eject the disc afterwards.")
+            Text("Windows that Vitrine did not install, such as an imported VM, has no driver for Vitrine's display or, on Arm, its network adapter. Attach the disc, start Windows, then open the VITRINE_DRIVERS disc and run install.cmd. Eject the disc afterwards.")
                 .font(.caption).foregroundStyle(.secondary)
         }
     }
