@@ -144,6 +144,15 @@ public enum QEMUArguments {
                                   : ["-device", "ide-cd,drive=cdx\(i),bus=ide.\(i + 1)"]
         }
 
+        // Driver disc: a plain data disc on a bus the guest has inbox drivers for. The last AHCI port
+        // on x86, out of the way of the installer and seed discs.
+        if let media = config.driverMedia {
+            let iso = bundle.resolve(media).path
+            a += ["-drive", "id=cddrv,if=none,media=cdrom,format=raw,readonly=on,file=\(qemuEscape(iso))"]
+            a += arch == .aarch64 ? ["-device", "usb-storage,bus=xhci.0,drive=cddrv,removable=on"]
+                                  : ["-device", "ide-cd,drive=cddrv,bus=ide.5"]
+        }
+
         // Shared folders for Linux (and other non-Windows) guests: one virtio-9p export per folder,
         // mounted in the guest by its tag. Windows gets them over SMB instead (SambaServer).
         // `security_model=none` keeps files on the Mac ordinary files owned by the Mac user.
@@ -190,7 +199,8 @@ public enum QEMUArguments {
         }
 
         // Network: user-mode NAT. Windows x86 has an inbox e1000e driver; Windows on Arm gets virtio-net
-        // with the NetKVM driver from the unattended-setup seed disc. Host-only is the same network
+        // with the NetKVM driver from the unattended-setup seed disc (an imported guest gets it from the
+        // driver disc: no adapter QEMU emulates has an inbox driver there; e1000e and usb-net were tried). Host-only is the same network
         // with `restrict=on`: no route out, while forwarded ports and the Samba share keep working.
         let nic = (windows && arch == .x86_64) ? "e1000e" : "virtio-net-pci"
         // validate() rejects malformed MACs; never splice an unchecked one into -device (a comma would

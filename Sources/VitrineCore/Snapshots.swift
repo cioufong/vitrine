@@ -103,7 +103,7 @@ public struct SnapshotStore: Sendable {
         for disk in config.disks where !disk.readOnly && !isDiskPath(disk.path) {
             throw VitrineError.unsupported("\(disk.path) is not a safe bundle-relative writable disk; use a bundle-relative path to a disk inside the VM bundle or make it read-only before taking snapshots or cloning")
         }
-        return (config.disks.map(\.path) + (config.extraMedia ?? []) + [config.installMedia].compactMap { $0 })
+        return (config.disks.map(\.path) + (config.extraMedia ?? []) + [config.installMedia, config.driverMedia].compactMap { $0 })
             .filter { isDiskPath($0) }
     }
 
@@ -404,6 +404,7 @@ public enum VMCloner {
             }
             config.extraMedia = config.extraMedia?.map(readOnlyReference)
             config.installMedia = config.installMedia.map(readOnlyReference)
+            config.driverMedia = config.driverMedia.map(readOnlyReference)
             let fm = FileManager.default
             try fm.createDirectory(at: dest.deletingLastPathComponent(), withIntermediateDirectories: true)
             guard mkdir(dest.path, 0o700) == 0 else { throw VitrineError.io("\(dest.path) already exists") }

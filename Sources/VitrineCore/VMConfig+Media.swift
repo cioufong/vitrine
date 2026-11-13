@@ -15,17 +15,32 @@ public extension VMConfig {
         extraMedia = nil
         windowsSetupAgentSeen = nil
         windowsSetupOffline = nil
-        let root = bundle.url.resolvingSymlinksInPath().standardizedFileURL
-        for m in media where m == "seed.iso" {
-            let candidate = bundle.resolve(m)
-            // A relative spelling alone does not establish ownership: a symlink may lead outside
-            // the bundle. Only Vitrine's generated, direct seed file is eligible for cleanup.
-            let resolved = candidate.resolvingSymlinksInPath().standardizedFileURL
-            guard resolved.deletingLastPathComponent() == root,
-                  resolved.lastPathComponent == "seed.iso",
-                  (try? candidate.resourceValues(forKeys: [.isSymbolicLinkKey]).isSymbolicLink) != true else { continue }
-            try? FileManager.default.removeItem(at: candidate)
-        }
+        for m in media where m == "seed.iso" { Self.removeGenerated(m, in: bundle) }
         return media
+    }
+
+    /// File name of the generated driver disc inside the bundle (see `driverMedia`).
+    static let driverDiscFileName = "drivers.iso"
+
+    /// Detaches the driver disc and deletes the generated one. The caller saves the config.
+    /// A saved memory state expects the same devices: only call this for a VM that is shut down.
+    @discardableResult
+    mutating func ejectDriverMedia(in bundle: VMBundle) -> String? {
+        guard let media = driverMedia else { return nil }
+        driverMedia = nil
+        if media == Self.driverDiscFileName { Self.removeGenerated(media, in: bundle) }
+        return media
+    }
+
+    /// Deletes a disc Vitrine generated directly inside the bundle. A relative spelling alone does
+    /// not establish ownership: a symlink may lead outside the bundle, and such a file is left alone.
+    private static func removeGenerated(_ name: String, in bundle: VMBundle) {
+        let root = bundle.url.resolvingSymlinksInPath().standardizedFileURL
+        let candidate = bundle.resolve(name)
+        let resolved = candidate.resolvingSymlinksInPath().standardizedFileURL
+        guard resolved.deletingLastPathComponent() == root,
+              resolved.lastPathComponent == name,
+              (try? candidate.resourceValues(forKeys: [.isSymbolicLinkKey]).isSymbolicLink) != true else { return }
+        try? FileManager.default.removeItem(at: candidate)
     }
 }
