@@ -9,17 +9,20 @@ public enum WindowsDriverDisc {
     /// them), then stages and installs every driver on the disc; ones without a device stay staged.
     static let installScript = #"""
     @echo off
+    rem Relaunch elevated once: the argument keeps a failing check from relaunching forever.
+    if "%~1"=="elevated" goto install
     net session >nul 2>&1
     if errorlevel 1 (
-        powershell -NoProfile -Command "Start-Process -Verb RunAs -FilePath '%~f0'"
+        powershell -NoProfile -Command "Start-Process -Verb RunAs -FilePath '%~f0' -ArgumentList elevated"
         exit /b
     )
+    :install
     echo Installing the virtio drivers for Vitrine...
     pnputil /add-driver "%~dp0drivers\*.inf" /subdirs /install
     rem The network adapter can stay missing until devices are enumerated again.
     pnputil /scan-devices
     echo.
-    echo Done. The network works from now on. For the full display, shut Windows down and turn
+    echo Done. The network adapter works from now on. For the full display, shut Windows down and turn
     echo off Basic display in Vitrine's Configuration, under Graphics. The disc can be ejected.
     pause
     """#

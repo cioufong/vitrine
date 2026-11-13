@@ -139,7 +139,7 @@ enum ImportIssueText {
         case .cleanShutdown:
             return String(localized: "\(app) recorded no clean shutdown for this VM; its file systems may need checking on first boot.", bundle: bundle)
         case .basicDisplay:
-            return String(localized: "Windows starts on a basic display at a fixed resolution and without network. Attach the driver disc under Configuration ▸ Hard Disk and run install.cmd from it in Windows, then turn off Basic display under Configuration ▸ Graphics.", bundle: bundle)
+            return String(localized: "Windows starts on a basic display at a fixed resolution and, on Arm, without network. Attach the driver disc under Configuration ▸ Hard Disk and run install.cmd from it in Windows, then turn off Basic display under Configuration ▸ Graphics.", bundle: bundle)
         case .other:
             return nil
         }

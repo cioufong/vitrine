@@ -11082,46 +11082,46 @@
         }
       }
     },
-    "Windows starts on a basic display at a fixed resolution and without network. Attach the driver disc under Configuration ▸ Hard Disk and run install.cmd from it in Windows, then turn off Basic display under Configuration ▸ Graphics.": {
+    "Windows starts on a basic display at a fixed resolution and, on Arm, without network. Attach the driver disc under Configuration ▸ Hard Disk and run install.cmd from it in Windows, then turn off Basic display under Configuration ▸ Graphics.": {
       "localizations": {
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "Windows は固定解像度の基本ディスプレイで、ネットワークなしで起動します。「構成」▸「ハードディスク」でドライバディスクを接続し、Windows でその中の install.cmd を実行してから、「構成」▸「グラフィックス」で「基本ディスプレイ」をオフにしてください。"
+            "value": "Windows は固定解像度の基本ディスプレイで起動し、Arm ではネットワークも使えません。「構成」▸「ハードディスク」でドライバディスクを接続し、Windows でその中の install.cmd を実行してから、「構成」▸「グラフィックス」で「基本ディスプレイ」をオフにしてください。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Windows 会以固定分辨率的基本显示启动，且没有网络。请在“配置”▸“硬盘”连接驱动程序光盘，在 Windows 中运行其中的 install.cmd，然后在“配置”▸“图形”关闭“基本显示”。"
+            "value": "Windows 会以固定分辨率的基本显示启动，在 Arm 上还没有网络。请在“配置”▸“硬盘”连接驱动程序光盘，在 Windows 中运行其中的 install.cmd，然后在“配置”▸“图形”关闭“基本显示”。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "Windows 會以固定解析度的基本顯示啟動，且沒有網路。請在「組態」▸「硬碟」連接驅動程式光碟，在 Windows 中執行其中的 install.cmd，然後在「組態」▸「圖形」關閉「基本顯示」。"
+            "value": "Windows 會以固定解析度的基本顯示啟動，在 Arm 上還沒有網路。請在「組態」▸「硬碟」連接驅動程式光碟，在 Windows 中執行其中的 install.cmd，然後在「組態」▸「圖形」關閉「基本顯示」。"
           }
         }
       }
     },
-    "Windows that Vitrine did not install, such as an imported VM, has no driver for Vitrine's network adapter or display. Attach the disc, start Windows, then open the VITRINE_DRIVERS disc and run install.cmd. Eject the disc afterwards.": {
+    "Windows that Vitrine did not install, such as an imported VM, has no driver for Vitrine's display or, on Arm, its network adapter. Attach the disc, start Windows, then open the VITRINE_DRIVERS disc and run install.cmd. Eject the disc afterwards.": {
       "localizations": {
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "読み込んだ仮想マシンなど、Vitrine がインストールしていない Windows には、Vitrine のネットワークアダプタとディスプレイのドライバがありません。ディスクを接続して Windows を起動し、VITRINE_DRIVERS ディスクを開いて install.cmd を実行してください。終わったらディスクを取り出します。"
+            "value": "読み込んだ仮想マシンなど、Vitrine がインストールしていない Windows には、Vitrine のディスプレイのドライバがなく、Arm ではネットワークアダプタのドライバもありません。ディスクを接続して Windows を起動し、VITRINE_DRIVERS ディスクを開いて install.cmd を実行してください。終わったらディスクを取り出します。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "不是由 Vitrine 安装的 Windows（例如导入的虚拟机）没有 Vitrine 网络适配器和显示器的驱动程序。连接光盘并启动 Windows，然后打开 VITRINE_DRIVERS 光盘并运行 install.cmd。完成后请推出光盘。"
+            "value": "不是由 Vitrine 安装的 Windows（例如导入的虚拟机）没有 Vitrine 显示器的驱动程序，在 Arm 上也没有网络适配器的驱动程序。连接光盘并启动 Windows，然后打开 VITRINE_DRIVERS 光盘并运行 install.cmd。完成后请推出光盘。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "不是由 Vitrine 安裝的 Windows（例如匯入的虛擬機器）沒有 Vitrine 網路卡與顯示器的驅動程式。連接光碟並啟動 Windows，然後打開 VITRINE_DRIVERS 光碟並執行 install.cmd。完成後請退出光碟。"
+            "value": "不是由 Vitrine 安裝的 Windows（例如匯入的虛擬機器）沒有 Vitrine 顯示器的驅動程式，在 Arm 上也沒有網路卡的驅動程式。連接光碟並啟動 Windows，然後打開 VITRINE_DRIVERS 光碟並執行 install.cmd。完成後請退出光碟。"
           }
         }
       }

@@ -227,7 +227,7 @@ public struct VMConfig: Codable, Equatable, Sendable {
         /// guests; fixed resolution, so turn it off once the guest has the driver.
         public var basicFramebuffer: Bool = false
         /// What an importer tells the user after turning `basicFramebuffer` on.
-        public static let basicFramebufferImportNote = "Windows starts on a basic display at a fixed resolution and without network, since Vitrine's display and network adapter need virtio drivers the guest may not have; attach the driver disc (Configuration ▸ Hard Disk, or `vitrinectl drivers`) and run install.cmd from it in Windows, then turn off Basic display under Configuration ▸ Graphics"
+        public static let basicFramebufferImportNote = "Windows starts on a basic display at a fixed resolution and, on Arm, without network, since Vitrine's display and its network adapter on Arm need virtio drivers the guest may not have; attach the driver disc (Configuration ▸ Hard Disk, or `vitrinectl drivers`) and run install.cmd from it in Windows, then turn off Basic display under Configuration ▸ Graphics"
         public init() {}
         public init(widthPixels: Int, heightPixels: Int, pixelsPerInch: Int) {
             self.widthPixels = widthPixels; self.heightPixels = heightPixels; self.pixelsPerInch = pixelsPerInch
